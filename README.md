@@ -39,7 +39,7 @@ The frontend provides role-specific interfaces:
 ### Installation
 ```bash
 git clone https://github.com/sumonstr12/Coastal-Solution-Frontend.git
-cd frontend
+cd Coastal-Solution-Frontend
 npm install
 ```
 
