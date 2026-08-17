@@ -1,16 +1,100 @@
-# React + Vite
+# Coastal Disaster Reporting & Crisis Management System — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web/mobile-friendly frontend for the **Citizen Participation-Based Coastal Disaster Reporting & Crisis Management System**, enabling citizens, volunteers, responders, and authorities to report, verify, and coordinate response to coastal disasters in Bangladesh.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The frontend provides role-specific interfaces:
+- **Citizens** — submit disaster reports, view verified alerts, track their own report status.
+- **Volunteers / Responders** — view assigned incidents, update field status and actions.
+- **Local Authority / Disaster Management Officer** — verify/prioritize incidents, monitor maps & dashboards, issue alerts.
+- **System Administrator** — manage users, roles, categories, and configurations.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer | Technology |
+|---|---|
+| Framework | React.js / Next.js (or responsive PWA) |
+| Mobile | PWA (Flutter/React Native if native GPS/camera/offline needed) |
+| Styling | Tailwind CSS |
+| Maps/GIS | OpenStreetMap-based / Leaflet |
+| State/Data | REST API integration (Django backend) |
+| Auth | JWT-based login with role-based UI rendering |
 
-## Expanding the ESLint configuration
+## Core Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Auth Flows** — Signup, login, logout, password/account recovery, role-based routing.
+- **Citizen Reporting Form** — Category, description, severity, date/time, GPS auto-capture or manual location pin, photo/video evidence upload (with size/type limits), and client-side validation for incomplete submissions.
+- **My Reports** — Citizens can view status/history of their own submitted reports (Submitted → Under Review → Verified → Assigned → In Progress → Resolved/Rejected).
+- **Interactive Map View** — Visualize incidents with filters by location, category, severity, priority, and status (Leaflet/OSM-based).
+- **Response Coordination Dashboard** — Assign incidents to responders, track response actions, manage shelter/rescue/medical/food-water resource records.
+- **Alerts & Notifications Panel** — Display official verified alerts distinctly from unverified citizen reports; support in-app/push notification display.
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+```bash
+git clone https://github.com/sumonstr12/Coastal-Solution-Frontend.git
+cd frontend
+npm install
+```
+
+### Run Development Server
+```bash
+npm run dev
+```
+
+### Build for Production
+```bash
+npm run build
+```
+
+## Project Structure (suggested)
+
+```
+src/
+├── components/       # Reusable UI components (navbar, modals, cards)
+├── pages/            # Role-based pages (citizen, responder, admin dashboards)
+├── features/
+│   ├── auth/
+│   ├── reports/
+│   ├── verification/
+│   ├── alerts/
+│   ├── dashboard/
+│   └── map/
+├── services/         # API integration layer
+├── hooks/
+└── utils/
+```
+this is initaial structure. May be change in future if needed.
+
+## User Roles & Access
+
+| Role | Key Screens |
+|---|---|
+| Citizen | Report form, My Reports, Alerts feed |
+| Volunteer | Assigned incidents, field update form |
+| Responder | Assigned incidents, response action log |
+| Local Authority | Map dashboard, incident filters |
+| Disaster Mgmt Officer | Verification queue, priority assignment, alert publishing |
+| Admin | User/role management, categories, audit logs |
+
+## Testing
+
+- Usability testing with representative citizen and responder workflows
+- Role/permission-based UI access testing
+- Offline/intermittent-network behavior testing
+
+## Future Enhancements
+
+- USSD/SMS fallback reporting flow (companion to app)
+- Predictive risk map overlays (cyclone/flood/storm-surge exposure)
+- Community trust/reputation indicators for repeated reporters
+
+## Acknowledgement
+
+Built as part of an academic project — Discipline of CSE, Khulna University.
