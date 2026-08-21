@@ -1,0 +1,162 @@
+src/
+│
+├── app/
+│   ├── store.js
+│   └── rootReducer.js
+│
+├── assets/
+│   ├── images/
+│   ├── icons/
+│   └── styles/
+│
+├── components/
+│   │
+│   ├── common/
+│   │   ├── Button.jsx
+│   │   ├── Input.jsx
+│   │   ├── Modal.jsx
+│   │   ├── Loader.jsx
+│   │   ├── Pagination.jsx
+│   │   ├── Badge.jsx
+│   │   └── EmptyState.jsx
+│   │
+│   ├── layout/
+│   │   ├── Navbar.jsx
+│   │   ├── Sidebar.jsx
+│   │   ├── Footer.jsx
+│   │   └── DashboardLayout.jsx
+│   │
+│   └── map/
+│       ├── DisasterMap.jsx
+│       ├── MapMarker.jsx
+│       └── MapLegend.jsx
+│
+├── features/
+│   │
+│   ├── auth/
+│   │   ├── api/
+│   │   │   └── authApi.js
+│   │   ├── components/
+│   │   │   ├── LoginForm.jsx
+│   │   │   └── RegisterForm.jsx
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   └── Register.jsx
+│   │   └── authSlice.js
+│   │
+│   ├── reports/
+│   │   ├── api/
+│   │   │   └── reportApi.js
+│   │   ├── components/
+│   │   │   ├── ReportForm.jsx
+│   │   │   ├── ReportCard.jsx
+│   │   │   ├── ReportFilter.jsx
+│   │   │   ├── ReportStatus.jsx
+│   │   │   └── EvidenceUpload.jsx
+│   │   ├── pages/
+│   │   │   ├── CreateReport.jsx
+│   │   │   ├── MyReports.jsx
+│   │   │   └── ReportDetails.jsx
+│   │   └── reportSlice.js
+│   │
+│   ├── incidents/
+│   │   ├── api/
+│   │   │   └── incidentApi.js
+│   │   ├── components/
+│   │   │   ├── IncidentCard.jsx
+│   │   │   ├── IncidentDetails.jsx
+│   │   │   ├── IncidentPriority.jsx
+│   │   │   └── IncidentStatusUpdate.jsx
+│   │   ├── pages/
+│   │   │   ├── Incidents.jsx
+│   │   │   └── IncidentDetailsPage.jsx
+│   │   └── incidentSlice.js
+│   │
+│   ├── alerts/
+│   │   ├── api/
+│   │   │   └── alertApi.js
+│   │   ├── components/
+│   │   │   ├── AlertCard.jsx
+│   │   │   └── AlertForm.jsx
+│   │   ├── pages/
+│   │   │   ├── Alerts.jsx
+│   │   │   └── CreateAlert.jsx
+│   │   └── alertSlice.js
+│   │
+│   ├── emergency/
+│   │   ├── api/
+│   │   │   └── emergencyApi.js
+│   │   ├── components/
+│   │   │   ├── SOSButton.jsx
+│   │   │   └── HelpRequestForm.jsx
+│   │   └── pages/
+│   │       └── EmergencyRequest.jsx
+│   │
+│   ├── crisis/
+│   │   ├── api/
+│   │   │   └── crisisApi.js
+│   │   ├── components/
+│   │   │   ├── CrisisOverview.jsx
+│   │   │   ├── ResponseAssignment.jsx
+│   │   │   └── ResourceManagement.jsx
+│   │   └── pages/
+│   │       └── CrisisManagement.jsx
+│   │
+│   ├── dashboard/
+│   │   ├── components/
+│   │   │   ├── StatisticsCards.jsx
+│   │   │   ├── RecentReports.jsx
+│   │   │   ├── DisasterChart.jsx
+│   │   │   └── SeverityChart.jsx
+│   │   └── pages/
+│   │       ├── CitizenDashboard.jsx
+│   │       ├── ResponderDashboard.jsx
+│   │       └── AdminDashboard.jsx
+│   │
+│   ├── notifications/
+│   │   ├── api/
+│   │   │   └── notificationApi.js
+│   │   ├── components/
+│   │   │   └── NotificationItem.jsx
+│   │   └── notificationSlice.js
+│   │
+│   └── users/
+│       ├── api/
+│       │   └── userApi.js
+│       ├── components/
+│       │   └── UserProfile.jsx
+│       └── pages/
+│           └── Profile.jsx
+│
+├── pages/
+│   ├── Home.jsx
+│   ├── About.jsx
+│   ├── NotFound.jsx
+│   └── Unauthorized.jsx
+│
+├── routes/
+│   ├── AppRoutes.jsx
+│   ├── ProtectedRoute.jsx
+│   └── RoleBasedRoute.jsx
+│
+├── services/
+│   ├── apiClient.js
+│   └── axiosInstance.js
+│
+├── hooks/
+│   ├── useAuth.js
+│   ├── useLocation.js
+│   └── useDebounce.js
+│
+├── utils/
+│   ├── constants.js
+│   ├── formatDate.js
+│   ├── formatLocation.js
+│   └── disasterHelpers.js
+│
+├── config/
+│   └── environment.js
+│
+├── App.jsx
+├── main.jsx
+└── index.css
