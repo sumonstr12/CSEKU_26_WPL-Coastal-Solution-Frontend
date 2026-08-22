@@ -30,6 +30,30 @@ The frontend provides role-specific interfaces:
 - **Response Coordination Dashboard** — Assign incidents to responders, track response actions, manage shelter/rescue/medical/food-water resource records.
 - **Alerts & Notifications Panel** — Display official verified alerts distinctly from unverified citizen reports; support in-app/push notification display.
 
+  ## Design & Architecture
+
+The system design and architecture documentation is maintained in the `docs/diagrams/` directory.
+
+### System Architecture
+
+![System Architecture](docs/diagrams/System-Architecture-Diagram.png)
+
+### Incident Lifecycle Flowchart
+
+![Incident Lifecycle Flowchart](docs/diagrams/Coastal-Disaster-Flowchart.png)
+
+### Entity Relationship Diagram
+
+![Entity Relationship Diagram](docs/diagrams/Coastal-Disaster-ER-Diagram.png)
+
+### Source Diagram Files
+
+The editable draw.io source files are also available in the `docs/diagrams/` directory:
+
+- [System Architecture Diagram](docs/diagrams/System-Architecture-Diagram.drawio)
+- [Incident Lifecycle Flowchart](docs/diagrams/Coastal-Disaster-Flowchart.drawio)
+- [Entity Relationship Diagram](docs/diagrams/Coastal-Disaster-ER-Diagram.drawio)
+
 ## Getting Started
 
 ### Prerequisites
