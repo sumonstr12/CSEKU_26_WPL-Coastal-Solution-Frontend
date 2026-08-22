@@ -20,7 +20,7 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black p-4">
       <div className="bg-slate-900/80 backdrop-blur-md p-8 rounded-xl shadow-2xl shadow-cyan-900/20 w-full max-w-md border border-slate-700">
         <div className="text-center mb-8">
           <h1 className="text-cyan-500 font-bold tracking-wider text-sm uppercase mb-1">
