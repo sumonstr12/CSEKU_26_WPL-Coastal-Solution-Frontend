@@ -54,6 +54,22 @@ The editable draw.io source files are also available in the `docs/diagrams/` dir
 - [Incident Lifecycle Flowchart](docs/diagrams/Coastal-Disaster-Flowchart.drawio)
 - [Entity Relationship Diagram](docs/diagrams/Coastal-Disaster-ER-Diagram.drawio)
 
+## UI/UX Design
+
+The UI wireframes and interactive prototype were designed in Figma.
+
+[View Interactive Figma Prototype](https://www.figma.com/proto/M6jS3H4BwvP4joOavhc2bq/Coastal-Disaster-Management---UI-Wireframes?node-id=0-1&t=qd86SSCeSWhEtwl1-1)
+
+### UI Wireframe Screens
+
+- Citizen Dashboard
+- Report Disaster
+- Report Confirmation
+- My Reports
+- Landing Page
+
+The exported UI wireframe previews are available in the `docs/ui-wireframes/` directory.
+
 ## Getting Started
 
 ### Prerequisites
