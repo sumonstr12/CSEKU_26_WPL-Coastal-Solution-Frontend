@@ -1,11 +1,8 @@
 import { useState } from 'react'
+import AppRoutes from './routes';
 
 function App() {
-  return (
-    <>
-      <p>Sumon</p>
-    </>
-  )
+  return <AppRoutes />;
 }
 
 export default App
