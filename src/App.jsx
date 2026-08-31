@@ -1,122 +1,86 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import CitizenDashboard from "./pages/CitizenDashboard";
+import ReportDisaster from "./pages/ReportDisaster";
+import ReportConfirmation from "./pages/ReportConfirmation";
+import MyReports from "./pages/MyReports";
+import ReportDetails from "./pages/ReportDetails";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Navbar from "./components/Navbar";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+function DisasterMap() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <main className="page">
+      <h1>Disaster Map</h1>
+      <p>View reported incidents on the disaster map.</p>
+    </main>
+  );
 }
 
-export default App
+function Alerts() {
+  return (
+    <main className="page">
+      <h1>Alerts & Warnings</h1>
+      <p>View official disaster alerts and warnings.</p>
+    </main>
+  );
+}
+
+function Help() {
+  return (
+    <main className="page">
+      <h1>Help / SOS</h1>
+      <p>Emergency assistance and support.</p>
+    </main>
+  );
+}
+function ProtectedRoute({ children }) {
+  const isAuthenticated =
+    localStorage.getItem("isAuthenticated") === "true";
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Navbar />
+
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+            path="dashboard"
+            element={
+              <ProtectedRoute>
+                <CitizenDashboard />
+              </ProtectedRoute>
+            }
+          />
+        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/report" element={<ReportDisaster />} />
+        <Route path="/confirmation" element={<ReportConfirmation />} />
+        <Route path="/reports" element={<MyReports />} />
+        <Route
+  path="/report-details"
+  element={<ReportDetails />}
+/>
+        <Route path="/map" element={<DisasterMap />} />
+        <Route path="/alerts" element={<Alerts />} />
+        <Route path="/help" element={<Help />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
