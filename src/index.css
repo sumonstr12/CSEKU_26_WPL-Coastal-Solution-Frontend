@@ -1,1 +1,272 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --font-bengali: "Hind Siliguri", "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Noto Serif Bengali", "Hind Siliguri", ui-serif, serif;
+
+  /* Soft sand / neutral scale */
+  --color-sand-25: #fbfaf6;
+  --color-sand-50: #f6f6f0;
+  --color-sand-100: #efeee4;
+  --color-sand-200: #e2e2d3;
+  --color-sand-300: #cfcfb9;
+
+  /* Accessible ink scale */
+  --color-ink-950: #15212a;
+  --color-ink-900: #1f2c36;
+  --color-ink-700: #3a4a57;
+  --color-ink-500: #637787;
+  --color-ink-300: #a7b4be;
+
+  /* Deep coastal teal — footer / emphasis surfaces */
+  --color-deepsea-950: #0b2725;
+  --color-deepsea-900: #0f3431;
+  --color-deepsea-800: #13413d;
+  --color-deepsea-700: #17504b;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-sand-50 font-bengali text-ink-900 antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.18);
+}
+
+:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7c7b6;
+  border-radius: 999px;
+  border: 2px solid #f6f6f0;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .site-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold whitespace-nowrap transition-all duration-200 select-none disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-teal-700 text-white shadow-sm hover:bg-teal-800 hover:shadow-md active:translate-y-px;
+  }
+  .btn-outline {
+    @apply border border-stone-300 bg-white text-ink-700 hover:border-teal-700 hover:text-teal-800;
+  }
+  .btn-ghost {
+    @apply text-ink-700 hover:bg-sand-100;
+  }
+  .btn-danger {
+    @apply bg-red-700 text-white shadow-sm hover:bg-red-800 active:translate-y-px;
+  }
+  .btn-amber {
+    @apply bg-amber-400 text-stone-900 shadow-sm hover:bg-amber-300 active:translate-y-px;
+  }
+
+  /* ---------- Form controls ---------- */
+  .input {
+    @apply w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-[15px] text-ink-900 transition placeholder:text-ink-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 focus:outline-none;
+  }
+  .input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500/15;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-ink-700;
+  }
+  .control-check {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.3rem;
+    accent-color: #0f766e;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .card {
+    @apply rounded-2xl border border-black/5 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)];
+  }
+}
+
+/* ---------- Decorative wave texture ---------- */
+.bg-waves-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='144' height='26' viewBox='0 0 144 26'%3E%3Cpath d='M0 13c12-7 24-7 36 0s24 7 36 0 24-7 36 0 24 7 36 0' fill='none' stroke='%230F766E' stroke-opacity='0.06' stroke-width='1.4'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+.bg-waves-pattern-light {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='144' height='26' viewBox='0 0 144 26'%3E%3Cpath d='M0 13c12-7 24-7 36 0s24 7 36 0 24-7 36 0 24 7 36 0' fill='none' stroke='%23FFFFFF' stroke-opacity='0.07' stroke-width='1.4'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* ---------- Scroll reveal ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.65s ease,
+    transform 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.animate-floaty {
+  animation: floaty 5.5s ease-in-out infinite;
+}
+.animate-floaty-late {
+  animation: floaty 6.5s ease-in-out 0.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .animate-floaty,
+  .animate-floaty-late {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ---------- Leaflet theming ---------- */
+.leaflet-container {
+  font-family: var(--font-bengali);
+  background: #dde8e2;
+  z-index: 0;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+  border: 1px solid rgba(16, 24, 40, 0.06);
+}
+.leaflet-popup-content {
+  margin: 12px 16px;
+  line-height: 1.55;
+  font-size: 13.5px;
+  color: #1f2c36;
+}
+.leaflet-popup-tip {
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.12);
+}
+.leaflet-bar a {
+  color: #17504b;
+}
+
+/* Custom map markers */
+.mpin {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 1px 5px rgba(16, 24, 40, 0.4);
+}
+.mpin.low {
+  background: #059669;
+  color: #059669;
+}
+.mpin.moderate {
+  background: #d97706;
+  color: #d97706;
+}
+.mpin.high {
+  background: #ea580c;
+  color: #ea580c;
+}
+.mpin.critical {
+  background: #dc2626;
+  color: #dc2626;
+}
+.mpin.high::after,
+.mpin.critical::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  opacity: 0;
+  animation: mpulse 2s ease-out infinite;
+}
+@keyframes mpulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.msq {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 9px;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 1px 5px rgba(16, 24, 40, 0.4);
+  color: #ffffff;
+}
+.msq svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.4;
+}
+.msq-teal {
+  background: #0f766e;
+}
+.msq-blue {
+  background: #1d4ed8;
+}
