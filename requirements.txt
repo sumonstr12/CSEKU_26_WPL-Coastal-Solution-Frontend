@@ -1,3 +1,10 @@
 toastify-js
-react-router
+react-router-dom
 tailwindcss
+axios
+lucide-react
+leaflet
+react-leaflet
+@types/node
+vite-plugin-jsconfig-paths
+vite-plugin-singlefile

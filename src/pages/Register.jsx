@@ -8,6 +8,7 @@ import {
   KeyRound,
   Loader2,
   Phone,
+  RefreshCw,
   ShieldCheck,
   UserPlus,
   UserRound,
@@ -17,23 +18,36 @@ import Logo from "@/components/Logo";
 import { DISTRICT_NAMES } from "@/data/districts";
 import { bn, classNames } from "@/lib/utils";
 import communityImg from "@/assets/community.jpg";
+import myaxios from "@/utils/myaxios";
+
 const ROLE_OPTIONS = [
   {
-    value: "citizen",
+    value: "CITIZEN",
     label: "সাধারণ নাগরিক",
     hint: "রিপোর্ট ও সতর্কতা",
   },
   {
-    value: "volunteer",
-    label: "স্বেচ্ছাসেবক",
+    value: "COMMUNITY_VOLUNTEER",
+    label: "কমিউনিটি স্বেচ্ছাসেবক",
     hint: "যাচাই ও সহায়তা",
   },
   {
-    value: "institution",
-    label: "প্রতিষ্ঠান",
-    hint: "স্কুল/সংস্থা দল",
+    value: "RESPONDER",
+    label: "জরুরি সাড়া প্রদানকারী",
+    hint: "দুর্যোগে দ্রুত সাড়া ও উদ্ধার",
+  },
+  {
+    value: "LOCAL_AUTHORITY",
+    label: "স্থানীয় কর্তৃপক্ষ",
+    hint: "স্থানীয় পর্যায়ে সমন্বয় ও ব্যবস্থাপনা",
+  },
+  {
+    value: "DISASTER_MANAGEMENT_OFFICER",
+    label: "দুর্যোগ ব্যবস্থাপনা কর্মকর্তা",
+    hint: "দুর্যোগ ব্যবস্থাপনা ও তদারকি",
   },
 ];
+
 export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState("form");
@@ -46,14 +60,20 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
+
   const clearError = (key) =>
     setErrors((e) => ({
       ...e,
       [key]: undefined,
     }));
-  const submit = (e) => {
+
+  // Step 1: Submit Form -> Call API (/auth/register/request/)
+  const submit = async (e) => {
     e.preventDefault();
     const next = {};
     if (name.trim().length < 3) next.name = "পুরো নাম লিখুন";
@@ -67,16 +87,45 @@ export default function Register() {
     if (!terms) next.terms = "শর্তাবলীতে সম্মতি দিন";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+
     setLoading(true);
-    window.setTimeout(() => {
-      setLoading(false);
-      setStep("otp");
-      window.scrollTo({
-        top: 0,
+    try {
+      const response = await myaxios.post("auth/register/request/", {
+        phone_number: phone,
+        password: password,
+        full_name: name,
+        role: role,
+        district: district,
       });
-    }, 1100);
+
+      if (response.data?.status) {
+        setVerificationId(response.data.verification_id);
+        setStep("otp");
+        window.scrollTo({ top: 0 });
+      }
+    } catch (err) {
+      const apiErrors = err.response?.data?.errors;
+      const apiMsg = err.response?.data?.message;
+
+      if (apiErrors) {
+        const formattedErrors = {};
+        if (apiErrors.phone_number) formattedErrors.phone = apiErrors.phone_number[0];
+        if (apiErrors.password) formattedErrors.password = apiErrors.password[0];
+        if (apiErrors.full_name) formattedErrors.name = apiErrors.full_name[0];
+        if (apiErrors.role) formattedErrors.role = apiErrors.role[0];
+        setErrors(formattedErrors);
+      } else if (apiMsg) {
+        setErrors({ form: apiMsg });
+      } else {
+        setErrors({ form: "একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।" });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
-  const verifyOtp = (e) => {
+
+  // Step 2: Verify OTP -> Call API (/auth/register/verify/)
+  const verifyOtp = async (e) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(otp)) {
       setErrors({
@@ -84,12 +133,51 @@ export default function Register() {
       });
       return;
     }
+
     setLoading(true);
-    window.setTimeout(() => {
+    try {
+      const response = await myaxios.post("auth/register/verify/", {
+        verification_id: verificationId,
+        otp: otp,
+      });
+
+      if (response.data?.status) {
+        // Save JWT Token to LocalStorage
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
+        setStep("done");
+      }
+    } catch (err) {
+      const apiMsg = err.response?.data?.message;
+      setErrors({
+        otp: apiMsg || "যাচাইকরণ ব্যর্থ হয়েছে। সঠিক OTP দিন।",
+      });
+    } finally {
       setLoading(false);
-      setStep("done");
-    }, 900);
+    }
   };
+
+  // Step 3: Resend OTP -> Call API (/auth/register/resend/)
+  const handleResendOtp = async () => {
+    if (!verificationId) return;
+    setResendLoading(true);
+    setResendMsg("");
+    try {
+      const response = await myaxios.post("auth/register/resend/", {
+        verification_id: verificationId,
+      });
+      if (response.data?.status) {
+        setResendMsg("নতুন যাচাইকরণ কোড পাঠানো হয়েছে।");
+      }
+    } catch (err) {
+      const apiMsg = err.response?.data?.message;
+      setErrors({ otp: apiMsg || "নতুন কোড পাঠাতে ব্যর্থ হয়েছে।" });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   return (
     <div className="site-container flex items-center justify-center py-10 md:py-16">
       <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-black/5 bg-white shadow-2xl lg:grid-cols-[1fr_1.05fr]">
@@ -172,7 +260,7 @@ export default function Register() {
                       type="text"
                       autoComplete="name"
                       className={classNames(
-                        "input !pl-10",
+                        "input pl-10!",
                         errors.name && "input-error",
                       )}
                       placeholder="যেমন: আব্দুল করিম"
@@ -202,7 +290,7 @@ export default function Register() {
                         inputMode="numeric"
                         autoComplete="tel"
                         className={classNames(
-                          "input !pl-10",
+                          "input pl-10!",
                           errors.phone && "input-error",
                         )}
                         placeholder="01XXXXXXXXX"
@@ -300,7 +388,7 @@ export default function Register() {
                         type={showPassword ? "text" : "password"}
                         autoComplete="new-password"
                         className={classNames(
-                          "input !px-10",
+                          "input px-10!",
                           errors.password && "input-error",
                         )}
                         placeholder="কমপক্ষে ৮ অক্ষর"
@@ -380,10 +468,12 @@ export default function Register() {
                   <ErrorMessage message={errors.terms} />
                 </div>
 
+                {errors.form && <ErrorMessage message={errors.form} />}
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary w-full !py-3.5"
+                  className="btn btn-primary w-full py-3.5!"
                 >
                   {loading ? (
                     <>
@@ -414,8 +504,7 @@ export default function Register() {
               </h1>
               <p className="mx-auto mt-2 max-w-sm text-[13.5px] leading-relaxed text-ink-500">
                 <span className="font-bold text-ink-900">{bn(phone)}</span>{" "}
-                নম্বরে একটি ৬ সংখ্যার যাচাইকরণ কোড পাঠানো হয়েছে। (ডেমো — যেকোনো
-                ৬ সংখ্যা দিন)
+                নম্বরে একটি ৬ সংখ্যার যাচাইকরণ কোড পাঠানো হয়েছে।
               </p>
               <form
                 onSubmit={verifyOtp}
@@ -433,7 +522,7 @@ export default function Register() {
                     maxLength={6}
                     autoComplete="one-time-code"
                     className={classNames(
-                      "input text-center font-mono !text-2xl !font-bold tracking-[0.5em]",
+                      "input text-center font-mono text-2xl! font-bold! tracking-[0.5em]",
                       errors.otp && "input-error",
                     )}
                     placeholder="———"
@@ -447,11 +536,16 @@ export default function Register() {
                     message={errors.otp}
                     className="justify-center"
                   />
+                  {resendMsg && (
+                    <p className="mt-1 text-[12px] font-semibold text-emerald-600">
+                      {resendMsg}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary w-full !py-3.5"
+                  className="btn btn-primary w-full py-3.5!"
                 >
                   {loading ? (
                     <>
@@ -468,13 +562,30 @@ export default function Register() {
                     </>
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setStep("form")}
-                  className="text-[13px] font-semibold text-ink-500 hover:text-teal-700"
-                >
-                  ভুল নম্বর? ফিরে গিয়ে ঠিক করুন →
-                </button>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendLoading}
+                    className="inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold text-teal-700 hover:underline disabled:opacity-50"
+                  >
+                    {resendLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    পুনরায় OTP পাঠান
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStep("form")}
+                    className="text-[13px] font-semibold text-ink-500 hover:text-teal-700"
+                  >
+                    ভুল নম্বর? ফিরে গিয়ে ঠিক করুন →
+                  </button>
+                </div>
               </form>
             </div>
           )}
