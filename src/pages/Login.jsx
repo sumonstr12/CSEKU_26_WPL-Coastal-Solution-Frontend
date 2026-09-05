@@ -15,6 +15,8 @@ import ErrorMessage from "@/components/ErrorMessage";
 import Logo from "@/components/Logo";
 import { classNames } from "@/lib/utils";
 import shelterImg from "@/assets/shelter.jpg";
+import myaxios from "@/utils/myaxios";
+
 export default function Login() {
   const navigate = useNavigate();
   const [identity, setIdentity] = useState("");
@@ -24,7 +26,8 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const submit = (e) => {
+
+  const submit = async (e) => {
     e.preventDefault();
     const next = {};
     if (!identity.trim()) next.identity = "মোবাইল নম্বর বা ইমেইল দিন";
@@ -32,13 +35,40 @@ export default function Login() {
       next.password = "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+
     setLoading(true);
-    window.setTimeout(() => {
+    try {
+      // API call to login endpoint
+      const response = await myaxios.post("auth/login/", {
+        username: identity, // Django Backend expects "username"
+        password: password,
+      });
+
+      if (response.data?.status || response.data?.token) {
+        // Save token and full_name to LocalStorage
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
+        if (response.data.full_name) {
+          localStorage.setItem("full_name", response.data.full_name);
+        }
+
+        setSuccess(true);
+        setTimeout(() => navigate("/"), 1200);
+      }
+    } catch (err) {
+      // Django backend returns {'error': 'Invalid Credentials'}
+      const apiError = err.response?.data?.error || err.response?.data?.message;
+      setErrors({
+        form: apiError === "Invalid Credentials" 
+          ? "সঠিক মোবাইল নম্বর/ইমেইল এবং পাসওয়ার্ড দিন।" 
+          : (apiError || "লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।"),
+      });
+    } finally {
       setLoading(false);
-      setSuccess(true);
-      window.setTimeout(() => navigate("/"), 1200);
-    }, 900);
+    }
   };
+
   return (
     <div className="site-container flex items-center justify-center py-10 md:py-16">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-black/5 bg-white shadow-2xl lg:grid-cols-2">
@@ -92,7 +122,7 @@ export default function Login() {
                     type="text"
                     autoComplete="username"
                     className={classNames(
-                      "input !pl-10",
+                      "input pl-10!",
                       errors.identity && "input-error",
                     )}
                     placeholder="01XXXXXXXXX অথবা name@email.com"
@@ -102,6 +132,7 @@ export default function Login() {
                       setErrors((er) => ({
                         ...er,
                         identity: undefined,
+                        form: undefined,
                       }));
                     }}
                   />
@@ -128,7 +159,7 @@ export default function Login() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     className={classNames(
-                      "input !px-10",
+                      "input pl-10!",
                       errors.password && "input-error",
                     )}
                     placeholder="আপনার পাসওয়ার্ড"
@@ -138,6 +169,7 @@ export default function Login() {
                       setErrors((er) => ({
                         ...er,
                         password: undefined,
+                        form: undefined,
                       }));
                     }}
                   />
@@ -169,10 +201,12 @@ export default function Login() {
                 এই ডিভাইসে মনে রাখুন
               </label>
 
+              {errors.form && <ErrorMessage message={errors.form} />}
+
               <button
                 type="submit"
                 disabled={loading}
-                className="btn btn-primary w-full !py-3.5"
+                className="btn btn-primary w-full py-3.5!"
               >
                 {loading ? (
                   <>
@@ -189,11 +223,6 @@ export default function Login() {
                   </>
                 )}
               </button>
-
-              <p className="rounded-xl bg-sand-50 px-3.5 py-2.5 text-center text-[12px] text-ink-500">
-                এটি একটি ডেমো সংস্করণ — যেকোনো মোবাইল/ইমেইল ও ৬+ অক্ষরের
-                পাসওয়ার্ড দিয়ে প্রবেশ করা যাবে।
-              </p>
             </form>
           )}
 
