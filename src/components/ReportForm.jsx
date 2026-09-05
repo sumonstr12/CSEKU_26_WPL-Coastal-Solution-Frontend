@@ -20,33 +20,43 @@ import { DISASTER_TYPES } from "@/data/disasters";
 import { DISTRICTS, findDistrict } from "@/data/districts";
 import { bn, classNames } from "@/lib/utils";
 import { HOTLINE_ITEMS } from "@/data/site";
-const DAMAGE_OPTIONS = [
-  "বাড়িঘর ক্ষতিগ্রস্ত",
-  "বেড়িবাঁধ ভাঙন/ফাটল",
-  "রাস্তাঘাট ডুবে গেছে",
-  "গাছপালা উঠে গেছে",
-  "ফসলের ক্ষতি",
-  "খাবার পানি দূষিত",
-  "বিদ্যুৎ সরবরাহ বিচ্ছিন্ন",
-  "যোগাযোগ ব্যবস্থা বিচ্ছিন্ন",
-];
+import myaxios from "@/utils/myaxios";
+import isLogin from "@/utils/isLogin";
+
+// ----------------------------------------------------------------------
+// Map UI damage labels to exact DB `DamageType.name` entries
+// ----------------------------------------------------------------------
+const DAMAGE_MAPPING = {
+  "বাড়িঘর ক্ষতিগ্রস্ত": 1,
+  "বেড়িবাঁধ ভাঙন/ফাটল": 4,
+  "রাস্তাঘাট ডুবে গেছে": 6,
+  "গাছপালা উঠে গেছে": 12,
+  "ফসলের ক্ষতি": 8,
+  "খাবার পানি দূষিত": 15,
+  "বিদ্যুৎ সরবরাহ বিচ্ছিন্ন": 13,
+  "যোগাযোগ ব্যবস্থা বিচ্ছিন্ন": 14,
+};
+
+const DAMAGE_OPTIONS = Object.keys(DAMAGE_MAPPING);
+
 const SITUATIONS = [
   {
     key: "worsening",
     label: "পরিস্থিতি আরও খারাপ হচ্ছে",
-    cls: "peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-800",
+    activeCls: "border-red-500 bg-red-50 text-red-800",
   },
   {
     key: "stable",
     label: "পরিস্থিতি স্থির আছে",
-    cls: "peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-800",
+    activeCls: "border-amber-500 bg-amber-50 text-amber-800",
   },
   {
     key: "improving",
     label: "পরিস্থিতির উন্নতি হচ্ছে",
-    cls: "peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-800",
+    activeCls: "border-emerald-500 bg-emerald-50 text-emerald-800",
   },
 ];
+
 const INITIAL = {
   typeKey: "",
   district: "",
@@ -57,13 +67,16 @@ const INITIAL = {
   description: "",
   damages: [],
   affectedPeople: "",
+  affectedFamilies: "",
   situation: "",
   urgentRescue: false,
   reporterName: "",
   reporterPhone: "",
 };
+
 const inputCls = (hasError) => classNames("input", hasError && "input-error");
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
 function SectionTitle({ number, title, hint }) {
   return (
     <div className="flex items-start gap-3 border-b border-stone-100 pb-3">
@@ -77,17 +90,23 @@ function SectionTitle({ number, title, hint }) {
     </div>
   );
 }
+
 export default function ReportForm() {
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [refCode, setRefCode] = useState(null);
   const [gps, setGps] = useState(null);
+  const [gpsCoords, setGpsCoords] = useState(null);
   const [gpsError, setGpsError] = useState(null);
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
   const imgInputRef = useRef(null);
   const videoInputRef = useRef(null);
+
+  // Check if user is logged in
+  const isAuthenticated = isLogin();
+
   const set = (key, value) => {
     setForm((f) => ({
       ...f,
@@ -98,9 +117,10 @@ export default function ReportForm() {
       [key]: undefined,
     }));
   };
-  const upazilaOptions = form.district
-    ? (findDistrict(form.district)?.upazilas ?? [])
-    : [];
+
+  const selectedDistrictObj = form.district ? findDistrict(form.district) : null;
+  const upazilaOptions = selectedDistrictObj?.upazilas ?? [];
+  
   const locateGps = () => {
     setGpsError(null);
     if (!navigator.geolocation) {
@@ -110,10 +130,16 @@ export default function ReportForm() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setGps(
-          `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
-        ),
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        setGpsCoords({
+          latitude: lat,
+          longitude: lng,
+          accuracy: pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : "10.0",
+        });
+        setGps(`${lat}, ${lng}`);
+      },
       () =>
         setGpsError(
           "GPS অনুমতি পাওয়া যায়নি — গ্রাম/ওয়ার্ডের নাম বিস্তারিত লিখুন।",
@@ -123,6 +149,7 @@ export default function ReportForm() {
       },
     );
   };
+
   const validate = () => {
     const next = {};
     if (!form.typeKey) next.typeKey = "দুর্যোগের ধরন নির্বাচন করুন";
@@ -139,13 +166,18 @@ export default function ReportForm() {
     if (!form.situation) next.situation = "বর্তমান পরিস্থিতি নির্বাচন করুন";
     if (form.affectedPeople && Number(form.affectedPeople) < 0)
       next.affectedPeople = "সংখ্যাটি সঠিক নয়";
-    if (form.reporterPhone && !/^01[3-9]\d{8}$/.test(form.reporterPhone))
-      next.reporterPhone =
-        "সঠিক ১১ সংখ্যার মোবাইল নম্বর দিন (যেমন 01XXXXXXXXX)";
+    
+    // Only validate phone if user is NOT logged in AND they provided a phone number
+    // (optional for anonymous users)
+    if (!isAuthenticated && form.reporterPhone && !/^01[3-9]\d{8}$/.test(form.reporterPhone)) {
+      next.reporterPhone = "সঠিক ১১ সংখ্যার মোবাইল নম্বর দিন (যেমন 01XXXXXXXXX)";
+    }
+    
     setErrors(next);
     return Object.keys(next).length === 0;
   };
-  const submit = (e) => {
+
+  const submit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       const firstError = document.querySelector("[data-invalid='true']");
@@ -155,24 +187,122 @@ export default function ReportForm() {
       });
       return;
     }
+
     setSubmitting(true);
-    window.setTimeout(() => {
-      setSubmitting(false);
-      setRefCode(
-        `CGBD-2026-${String(Math.floor(1000 + Math.random() * 9000))}`,
-      );
+
+    try {
+      const formData = new FormData();
+
+      // 1. Incident Category Mapping (matches IncidentCategory DB fields/IDs)
+      const selectedType = DISASTER_TYPES.find((t) => t.key === form.typeKey);
+      if (!selectedType?.id) {throw new Error("Invalid disaster category selected.");}
+      formData.append("category", String(selectedType.id));
+
+      // 2. Text descriptions
+      formData.append("description", form.description);
+      formData.append("description_bn", form.description);
+
+      // 3. Situation
+      formData.append("situation", form.situation);
+      console.log("Selected situation:", form.situation);
+
+      // 4. Damage Types (mapped to DamageType DB `name` strings)
+      form.damages.forEach((damageText) => {
+        const damageId = DAMAGE_MAPPING[damageText];
+
+        if (damageId) {
+          formData.append("damage_types", String(damageId));
+        }
+      });
+
+      // 5. Geolocation / Position
+      if (gpsCoords) {
+        formData.append("latitude", gpsCoords.latitude);
+        formData.append("longitude", gpsCoords.longitude);
+        formData.append("location_accuracy", gpsCoords.accuracy);
+        formData.append("location_source", "gps");
+      } else {
+        formData.append("location_source", "manual");
+      }
+
+      // 6. Address Fields
+      const fullAddress = `${form.village}, ${form.upazila}, ${form.district}`;
+      formData.append("address", fullAddress);
+      formData.append("village", form.village);
+      formData.append("upazila", form.upazila);
+      formData.append("district", form.district);
+      if (selectedDistrictObj?.division) {
+        formData.append("division", selectedDistrictObj.division);
+      }
+
+      // 7. Reporter Details & Anonymity
+      formData.append("is_anonymous", isAuthenticated ? "false" : "true");
+
+      // Only send reporter details if they are provided (always optional)
+      if (form.reporterName.trim()) {
+        formData.append("reporter_name", form.reporterName.trim());
+      }
+      if (form.reporterPhone.trim()) {
+        formData.append("reporter_phone", form.reporterPhone.trim());
+      }
+
+      // 8. Incident Timestamp ISO format
+      const incidentISO = new Date(`${form.date}T${form.time}:00`).toISOString();
+      formData.append("incident_time", incidentISO);
+
+      // 9. Estimates & Emergency Flags
+      if (form.affectedPeople) {
+        formData.append("affected_people_estimate", form.affectedPeople);
+      }
+      if (form.affectedFamilies) {
+        formData.append(
+          "affected_families_estimate",
+          String(form.affectedFamilies)
+        );
+      }
+      formData.append("is_sos", form.urgentRescue ? "true" : "false");
+
+
+
+      // 10. File Attachments
+      images.forEach((file) => formData.append("files", file));
+      if (video) formData.append("files", video);
+
+      // Post request
+      const res = await myaxios.post("incidents/create/", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const responseCode =
+        res?.data?.reference_code ||
+        res?.data?.id ||
+        `CGBD-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
+
+      setRefCode(responseCode);
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
-    }, 1400);
+    } catch (err) {
+      console.error("Failed to submit incident report:", err);
+      setErrors((prev) => ({
+        ...prev,
+        submit: "রিপোর্ট জমা দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+      }));
+    } finally {
+      setSubmitting(false);
+    }
   };
+
   const resetAll = () => {
     setForm(INITIAL);
     setErrors({});
     setImages([]);
     setVideo(null);
     setGps(null);
+    setGpsCoords(null);
     setGpsError(null);
     setRefCode(null);
   };
@@ -430,7 +560,7 @@ export default function ReportForm() {
           <button
             type="button"
             onClick={locateGps}
-            className="btn !border !border-teal-700 !bg-white !px-3.5 !py-2 !text-[13px] !font-bold !text-teal-800 hover:!bg-teal-50"
+            className="btn border! border-teal-700! bg-white! px-3.5! py-2! text-[13px]! font-bold! text-teal-800! hover:bg-teal-50!"
           >
             <Crosshair className="h-4 w-4" aria-hidden="true" />
             GPS অবস্থান নিন
@@ -508,33 +638,62 @@ export default function ReportForm() {
               />
               <ErrorMessage message={errors.affectedPeople} />
             </div>
+            <div>
+              <label className="label">
+                আনুমানিক ক্ষতিগ্রস্ত পরিবার
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                value={form.affectedFamilies}
+                onChange={(e) =>
+                  set("affectedFamilies", e.target.value)
+                }
+                className={inputCls(errors.affectedFamilies)}
+                placeholder="যেমন: 40"
+              />
+
+              {errors.affectedFamilies && (
+                <ErrorMessage message={errors.affectedFamilies} />
+              )}
+            </div>
           </div>
 
           <fieldset className="mt-5">
             <legend className="label">
               বর্তমান পরিস্থিতি <span className="text-red-600">*</span>
             </legend>
+
             <div className="grid gap-2 sm:grid-cols-3">
-              {SITUATIONS.map((s) => (
-                <label
-                  key={s.key}
-                  className={classNames(
-                    "cursor-pointer rounded-xl border-2 border-stone-200 px-3.5 py-3 text-center text-[13.5px] font-semibold text-ink-700 transition-all hover:border-teal-600/30",
-                    s.cls,
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="situation"
-                    value={s.key}
-                    checked={form.situation === s.key}
-                    onChange={() => set("situation", s.key)}
-                    className="peer sr-only"
-                  />
-                  {s.label}
-                </label>
-              ))}
+              {SITUATIONS.map((s) => {
+                const active = form.situation === s.key;
+
+                return (
+                  <label
+                    key={s.key}
+                    className={classNames(
+                      "cursor-pointer rounded-xl border-2 px-3.5 py-3 text-center text-[13.5px] font-semibold transition-all",
+                      active
+                        ? s.activeCls
+                        : "border-stone-200 text-ink-700 hover:border-teal-600/30",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="situation"
+                      value={s.key}
+                      checked={active}
+                      onChange={(e) => set("situation", e.target.value)}
+                      className="sr-only"
+                    />
+
+                    {s.label}
+                  </label>
+                );
+              })}
             </div>
+
             <ErrorMessage message={errors.situation} />
           </fieldset>
 
@@ -694,61 +853,63 @@ export default function ReportForm() {
         </div>
       </Fieldset>
 
-      {/* Section 5 */}
-      <Fieldset data-invalid={!!errors.reporterPhone}>
-        <SectionTitle
-          number="৫"
-          title="যোগাযোগের তথ্য"
-          hint="সম্পূর্ণ ঐচ্ছিক — যাচাইয়ের প্রয়োজনে ব্যবহারের বাইরে গোপন রাখা হয়"
-        />
-        <div className="grid gap-4 pt-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="ev-name" className="label">
-              আপনার নাম (ঐচ্ছিক)
-            </label>
-            <input
-              id="ev-name"
-              type="text"
-              autoComplete="name"
-              className="input"
-              placeholder="পুরো নাম"
-              value={form.reporterName}
-              onChange={(e) => set("reporterName", e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="ev-phone" className="label">
-              মোবাইল নম্বর (ঐচ্ছিক)
-            </label>
-            <input
-              id="ev-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              className={inputCls(errors.reporterPhone)}
-              placeholder="01XXXXXXXXX"
-              value={form.reporterPhone}
-              onChange={(e) => set("reporterPhone", e.target.value)}
-              aria-describedby="phone-privacy"
-            />
-            <ErrorMessage message={errors.reporterPhone} />
-          </div>
-        </div>
-        <p
-          id="phone-privacy"
-          className="mt-2.5 flex items-start gap-1.5 text-[12px] text-ink-300"
-        >
-          <ShieldCheck
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-700"
-            aria-hidden="true"
+      {/* Section 5 - Only show when user is NOT logged in (anonymous) */}
+      {!isAuthenticated && (
+        <Fieldset data-invalid={!!errors.reporterPhone}>
+          <SectionTitle
+            number="৫"
+            title="যোগাযোগের তথ্য"
+            hint="সম্পূর্ণ ঐচ্ছিক — যাচাইয়ের প্রয়োজনে ব্যবহারের বাইরে গোপন রাখা হয়"
           />
-          আপনার পরিচয় প্রকাশ করা হবে না; রিপোর্টে শুধু এলাকা ও ঘটনার তথ্য দেখা
-          যাবে।
-        </p>
-      </Fieldset>
+          <div className="grid gap-4 pt-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="ev-name" className="label">
+                আপনার নাম (ঐচ্ছিক)
+              </label>
+              <input
+                id="ev-name"
+                type="text"
+                autoComplete="name"
+                className="input"
+                placeholder="পুরো নাম"
+                value={form.reporterName}
+                onChange={(e) => set("reporterName", e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="ev-phone" className="label">
+                মোবাইল নম্বর (ঐচ্ছিক)
+              </label>
+              <input
+                id="ev-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                className={inputCls(errors.reporterPhone)}
+                placeholder="01XXXXXXXXX"
+                value={form.reporterPhone}
+                onChange={(e) => set("reporterPhone", e.target.value)}
+                aria-describedby="phone-privacy"
+              />
+              <ErrorMessage message={errors.reporterPhone} />
+            </div>
+          </div>
+          <p
+            id="phone-privacy"
+            className="mt-2.5 flex items-start gap-1.5 text-[12px] text-ink-300"
+          >
+            <ShieldCheck
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-700"
+              aria-hidden="true"
+            />
+            আপনার পরিচয় প্রকাশ করা হবে না; রিপোর্টে শুধু এলাকা ও ঘটনার তথ্য দেখা
+            যাবে।
+          </p>
+        </Fieldset>
+      )}
 
-      {/* error summary */}
-      {Object.values(errors).some(Boolean) && (
+      {/* Error summary */}
+      {(Object.values(errors).some(Boolean) || errors.submit) && (
         <div
           className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
           role="alert"
@@ -758,7 +919,8 @@ export default function ReportForm() {
             aria-hidden="true"
           />
           <p className="text-[13.5px] font-semibold text-red-800">
-            দয়া করে লাল চিহ্নিত ঘরগুলো পূরণ বা ঠিক করে আবার জমা দিন।
+            {errors.submit ||
+              "দয়া করে লাল চিহ্নিত ঘরগুলো পূরণ বা ঠিক করে আবার জমা দিন।"}
           </p>
         </div>
       )}
@@ -802,6 +964,7 @@ export default function ReportForm() {
     </form>
   );
 }
+
 function Fieldset({ children, ...rest }) {
   return <fieldset {...rest}>{children}</fieldset>;
 }

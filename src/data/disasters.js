@@ -15,36 +15,43 @@ import salinityImg from "@/assets/salinity.jpg";
 import rescueImg from "@/assets/rescue.jpg";
 export const DISASTER_TYPES = [
   {
+    id: 1,
     key: "cyclone",
     label: "ঘূর্ণিঝড়",
     icon: Tornado,
   },
   {
+    id: 2,
     key: "surge",
     label: "জলোচ্ছ্বাস",
     icon: Waves,
   },
   {
+    id: 3,
     key: "flood",
     label: "বন্যা",
     icon: Droplets,
   },
   {
+    id: 4,
     key: "erosion",
     label: "নদীভাঙন",
     icon: LandPlot,
   },
   {
+    id: 5,
     key: "rain",
     label: "অতিবৃষ্টি",
     icon: CloudRain,
   },
   {
+    id: 6,
     key: "salinity",
     label: "লবণাক্ততা",
     icon: Sprout,
   },
   {
+    id: 7,
     key: "waterlogging",
     label: "পানিবন্দী",
     icon: CloudSunRain,
