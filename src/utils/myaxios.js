@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const myaxios = axios.create({
-    baseURL: "http://127.0.0.1:8000/api/v1/",
+    baseURL: "http://localhost:8000/api/v1/",
     withCredentials: true
 });
 
@@ -38,7 +38,7 @@ myaxios.interceptors.response.use(
             
             try {
                 const { data } = await axios.post(
-                    "http://127.0.0.1:8000/api/v1/token/refresh/",
+                    "http://localhost:8000/api/v1/token/get-refresh/",
                     {},
                     {
                         withCredentials: true
