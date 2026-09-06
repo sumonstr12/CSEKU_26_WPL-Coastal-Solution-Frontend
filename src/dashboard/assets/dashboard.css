@@ -1,0 +1,169 @@
+@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Hind Siliguri", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* CoastalGuard BD — coastal teal / lagoon */
+  --color-lagoon-50: #eef8f7;
+  --color-lagoon-100: #d5efed;
+  --color-lagoon-200: #aee1de;
+  --color-lagoon-300: #78cbc8;
+  --color-lagoon-400: #47abaa;
+  --color-lagoon-500: #2f908f;
+  --color-lagoon-600: #277476;
+  --color-lagoon-700: #235e61;
+  --color-lagoon-800: #214c4f;
+  --color-lagoon-900: #1f4043;
+  --color-lagoon-950: #0d2529;
+
+  /* Sand / neutral warmth */
+  --color-sand-50: #faf8f3;
+  --color-sand-100: #f2eee0;
+  --color-sand-200: #e4dcc3;
+  --color-sand-300: #d1c49d;
+  --color-sand-400: #bca874;
+  --color-sand-500: #ad9460;
+  --color-sand-600: #937a4f;
+  --color-sand-700: #786242;
+  --color-sand-800: #63523a;
+  --color-sand-900: #534531;
+
+  /* Balanced off-white workspace background */
+  --color-mist: #f1f5f4;
+
+  --shadow-card: 0 1px 2px rgba(15, 42, 46, 0.05), 0 10px 28px -14px rgba(15, 42, 46, 0.1);
+  --shadow-lift: 0 2px 6px rgba(15, 42, 46, 0.07), 0 18px 44px -16px rgba(15, 42, 46, 0.2);
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 0.68, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.3s ease both;
+  --animate-pop-in: pop-in 0.22s cubic-bezier(0.22, 0.68, 0.36, 1.4) both;
+  --animate-ping-soft: ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes ping-soft {
+    0% { transform: scale(1); opacity: 0.75; }
+    80%, 100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-mist font-sans text-slate-600 antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply text-slate-800;
+  }
+  ::selection {
+    @apply bg-lagoon-200 text-lagoon-900;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(39, 116, 118, 0.35) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(39, 116, 118, 0.28);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* ---------- Buttons (base shared via group selector) ---------- */
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-soft,
+  .btn-danger-soft,
+  .btn-ghost,
+  .btn-icon {
+    @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon-500 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-lagoon-600 px-4 py-2.5 text-white shadow-sm shadow-lagoon-600/25 hover:bg-lagoon-700 hover:shadow-md active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply border border-slate-300 bg-white px-4 py-2.5 text-slate-700 hover:border-lagoon-400 hover:text-lagoon-700 active:scale-[0.98];
+  }
+  .btn-soft {
+    @apply bg-lagoon-50 px-4 py-2.5 text-lagoon-700 hover:bg-lagoon-100 active:scale-[0.98];
+  }
+  .btn-danger-soft {
+    @apply bg-red-50 px-4 py-2.5 text-red-700 hover:bg-red-100 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800;
+  }
+  .btn-icon {
+    @apply h-10 w-10 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800;
+  }
+
+  /* ---------- Surfaces ---------- */
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-card;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 transition placeholder:text-slate-400 focus:border-lagoon-500 focus:outline-none focus:ring-2 focus:ring-lagoon-500/20;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-slate-700;
+  }
+
+  /* ---------- Skeleton shimmer ---------- */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-slate-200/80;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+/* Sidebar nav item base (active handled via NavLink) */
+.nav-item {
+  @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-lagoon-50/80 hover:text-lagoon-800;
+}
+.nav-item.active {
+  @apply bg-lagoon-100/80 font-semibold text-lagoon-800;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  height: 60%;
+  width: 4px;
+  transform: translateY(-50%);
+  border-radius: 0 6px 6px 0;
+  background: linear-gradient(180deg, #47abaa, #277476);
+}

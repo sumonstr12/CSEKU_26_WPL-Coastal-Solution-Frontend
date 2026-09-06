@@ -12,28 +12,31 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
 import ProfileRoutes from "@/routes/profile.routes";
+import DashboardRoute from "./routes/dashboard.routes";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/disasters" element={<DisasterNews />} />
-          <Route path="/report" element={<ReportDisaster />} />
-          <Route path="/shelters" element={<Shelters />} />
-          <Route path="/rescue" element={<Rescue />} />
-          <Route path="/map" element={<DisasterMap />} />
-          <Route path="/awareness" element={<Awareness />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-
-        <Route path="profile/*" element={<ProfileRoutes />} />
-
-      </Routes>
+        <Routes>
+          <Route path="profile/*" element={<ProfileRoutes />} />
+          {/* <DashboardRoute /> */}
+          <Route path="/*" element={<DashboardRoute />} />
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/disasters" element={<DisasterNews />} />
+            <Route path="/report" element={<ReportDisaster />} />
+            <Route path="/shelters" element={<Shelters />} />
+            <Route path="/rescue" element={<Rescue />} />
+            <Route path="/map" element={<DisasterMap />} />
+            <Route path="/awareness" element={<Awareness />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+        {/* <DashboardRoute /> */}
     </BrowserRouter>
+
   );
 }

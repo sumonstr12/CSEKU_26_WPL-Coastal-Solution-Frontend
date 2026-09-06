@@ -8,3 +8,5 @@ react-leaflet
 @types/node
 vite-plugin-jsconfig-paths
 vite-plugin-singlefile
+clsx 
+tailwind-merge
