@@ -11,6 +11,8 @@ import About from "@/pages/About";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/NotFound";
+import ProfileRoutes from "@/routes/profile.routes";
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -28,6 +30,9 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<NotFound />} />
         </Route>
+
+        <Route path="profile/*" element={<ProfileRoutes />} />
+
       </Routes>
     </BrowserRouter>
   );

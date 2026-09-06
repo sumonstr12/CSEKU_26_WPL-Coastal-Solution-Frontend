@@ -12,6 +12,7 @@ import {
   User,
   UserPlus,
   X,
+  LayoutDashboard,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { HOTLINE_ITEMS, NAV_ITEMS, SITE } from "@/data/site";
@@ -201,6 +202,13 @@ export default function Navbar() {
                         <User className="h-4 w-4 text-stone-500" />
                         আমার প্রোফাইল
                       </Link>
+                      <Link
+                        to="/dashboard"
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-ink-700 hover:bg-teal-50 hover:text-teal-800"
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-stone-500" />
+                        ড্যাশবোর্ড
+                      </Link>
 
                       <button
                         type="button"
@@ -303,6 +311,16 @@ export default function Navbar() {
                 </div>
               </div>
 
+              <Link
+                to="/dashboard"
+                className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink-700 hover:bg-stone-100"
+              >
+                <span className="flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4 text-stone-500" />
+                  ড্যাশবোর্ড
+                </span>
+                <ChevronRight className="h-4 w-4 text-ink-300" />
+              </Link>
               <Link
                 to="/profile"
                 className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-ink-700 hover:bg-stone-100"
