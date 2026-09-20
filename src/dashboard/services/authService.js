@@ -4,6 +4,7 @@
  */
 import { mockRequest } from "./api";
 import { users } from "./mock/mockData";
+import myaxios from "../../utils/myaxios";
 
 const SESSION_KEY = "cgbd.session";
 
@@ -49,17 +50,34 @@ export const authService = {
   },
 
   async me() {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    try {
-      const cached = JSON.parse(raw);
-      // Refresh availability/name changes made during the session
-      const fresh = users.find((u) => u.id === cached.id);
-      return sanitizeUser(fresh || cached);
-    } catch {
-      return null;
-    }
-  },
+  try {
+    const response = await myaxios.get("users/me/");
+
+    const profile = response.data?.data;
+
+    if (!profile) return null;
+
+    const user = {
+      id: profile.id,
+      name: profile.full_name,
+      nameEn: profile.full_name,
+      role: profile.role,
+      phone: profile.phone_number,
+      phoneRaw: profile.phone_number,
+      email: profile.email || "",
+      district: profile.district || "",
+      availability: profile.role === "COMMUNITY_VOLUNTEER"
+        ? "AVAILABLE"
+        : undefined,
+      joinedAt: profile.date_joined,
+    };
+
+    return this.persist(user);
+  } catch (error) {
+    console.error("Failed to fetch current user:", error);
+    return null;
+  }
+},
 
   persist(user) {
     const safe = sanitizeUser(user);

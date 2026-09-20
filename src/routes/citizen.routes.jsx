@@ -4,7 +4,7 @@ export default function CitizenRoutes() {
   return (
     <Route path="/citizen" element={<CitizenLayout />}>
       <Route path="dashboard" element={<CitizenDashboard />} />
-      <Route path="report" element={<CreateReport />} />
+      <Route path="report" element={< />} />
       <Route path="reports" element={<MyReports />} />
       <Route path="reports/:id" element={<ReportDetails />} />
       <Route path="alerts" element={<Alerts />} />

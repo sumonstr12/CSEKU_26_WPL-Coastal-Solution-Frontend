@@ -1,14 +1,62 @@
-import { Wind, WavesArrowUp, CloudRain, Mountain, Droplet, Flame, TriangleAlert } from "lucide-react";
+import { Wind, WavesArrowUp, CloudRain, Mountain, Droplet } from "lucide-react";
 
 /** Disaster type registry — icon, Bangla label, palette tone */
 export const DISASTER_TYPES = {
-  cyclone: { label: "ঘূর্ণিঝড়", icon: Wind, iconBox: "bg-sky-50 text-sky-600", bar: "#0284c7" },
-  surge: { label: "জলোচ্ছ্বাস", icon: WavesArrowUp, iconBox: "bg-blue-50 text-blue-600", bar: "#2563eb" },
-  flood: { label: "বন্যা", icon: CloudRain, iconBox: "bg-cyan-50 text-cyan-700", bar: "#0e7490" },
-  erosion: { label: "নদীভাঙন", icon: Mountain, iconBox: "bg-amber-50 text-amber-700", bar: "#b45309" },
-  salinity: { label: "লবণাক্ততা", icon: Droplet, iconBox: "bg-emerald-50 text-emerald-700", bar: "#047857" },
-  fire: { label: "অগ্নিকাণ্ড", icon: Flame, iconBox: "bg-red-50 text-red-600", bar: "#dc2626" },
-  other: { label: "অন্যান্য", icon: TriangleAlert, iconBox: "bg-slate-100 text-slate-600", bar: "#64748b" },
+  cyclone: {
+    label: "ঘূর্ণিঝড়",
+    icon: Wind,
+    iconBox: "bg-sky-50 text-sky-600",
+    bar: "#0284c7",
+    backendId: 1,
+  },
+
+  surge: {
+    label: "জলোচ্ছ্বাস",
+    icon: WavesArrowUp,
+    iconBox: "bg-blue-50 text-blue-600",
+    bar: "#2563eb",
+    backendId: 2,
+  },
+
+  flood: {
+    label: "বন্যা",
+    icon: CloudRain,
+    iconBox: "bg-cyan-50 text-cyan-700",
+    bar: "#0e7490",
+    backendId: 3,
+  },
+
+  erosion: {
+    label: "নদীভাঙন",
+    icon: Mountain,
+    iconBox: "bg-amber-50 text-amber-700",
+    bar: "#b45309",
+    backendId: 4,
+  },
+
+  rainfall: {
+    label: "অতিবৃষ্টি",
+    icon: CloudRain,
+    iconBox: "bg-indigo-50 text-indigo-700",
+    bar: "#4f46e5",
+    backendId: 5,
+  },
+
+  salinity: {
+    label: "লবণাক্ততা",
+    icon: Droplet,
+    iconBox: "bg-emerald-50 text-emerald-700",
+    bar: "#047857",
+    backendId: 6,
+  },
+
+  waterlogging: {
+    label: "পানিবন্দী",
+    icon: WavesArrowUp,
+    iconBox: "bg-violet-50 text-violet-700",
+    bar: "#7c3aed",
+    backendId: 7,
+  },
 };
 
 export const disasterType = (key) => DISASTER_TYPES[key] || DISASTER_TYPES.other;
