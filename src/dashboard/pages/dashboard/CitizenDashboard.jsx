@@ -17,6 +17,8 @@ import { WelcomeBanner } from "./Dashboard";
 
 export default function CitizenDashboard({ user }) {
   const { data, loading, error, refetch } = useDashboard(dashboardService.getCitizenOverview, []);
+  console.log("CITIZEN DASHBOARD DATA:", data);
+  console.log("CITIZEN STATS:", data?.stats);
   const navigate = useNavigate();
 
   if (loading) return <DashboardSkeleton statCount={4} />;
@@ -37,7 +39,7 @@ export default function CitizenDashboard({ user }) {
       />
 
       {data.alert && <DisasterAlert data={data.alert} />}
-
+        
       <StatGrid stats={data.stats} columns={4} onStatClick={(s) => clickMap[s.key] && navigate(clickMap[s.key])} />
 
       <QuickActions

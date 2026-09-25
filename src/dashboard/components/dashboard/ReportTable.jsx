@@ -12,7 +12,40 @@ import { cn } from "../../utils/cn.js";
  */
 export default function ReportTable({ items, showReporter = false, expandable = true, onVerify, verifyBusy, empty = {} }) {
   const [openId, setOpenId] = useState(null);
-  const TypeIcon = (t) => disasterType(t).icon;
+  const CATEGORY_TYPE = {
+    1: "cyclone",
+    2: "surge",
+    3: "flood",
+    4: "erosion",
+    5: "rainfall",
+    6: "salinity",
+    7: "waterlogging",
+  };
+
+  const VALID_TYPES = new Set([
+  "cyclone",
+  "surge",
+  "flood",
+  "erosion",
+  "rainfall",
+  "salinity",
+  "waterlogging",
+]);
+
+const getReportType = (r) => {
+  // Existing frontend type
+  if (r.type && VALID_TYPES.has(r.type)) {
+    return r.type;
+  }
+
+  // Backend category
+  if (r.category?.id && CATEGORY_TYPE[r.category.id]) {
+    return CATEGORY_TYPE[r.category.id];
+  }
+
+  // Safe fallback
+  return "flood";
+};
 
   if (!items?.length) {
     return (
@@ -80,7 +113,8 @@ export default function ReportTable({ items, showReporter = false, expandable = 
           </thead>
           <tbody>
             {items.map((r) => {
-              const Icon = TypeIcon(r.type);
+              const reportType = getReportType(r);
+              const Icon = disasterType(reportType).icon;
               const open = openId === r.id;
               return (
                 <Fragment key={r.id}>
@@ -90,12 +124,12 @@ export default function ReportTable({ items, showReporter = false, expandable = 
                   >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", disasterType(r.type).iconBox)}>
+                        <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", disasterType(reportType).iconBox)}>
                           <Icon size={17} />
                         </span>
                         <div className="min-w-0">
                           <p className="max-w-[280px] truncate font-semibold text-slate-700">{r.title}</p>
-                          <p className="text-[11px] text-slate-400">{r.id} • {disasterType(r.type).label}</p>
+                          <p className="text-[11px] text-slate-400">{r.id} • {disasterType(reportType).label}</p>
                         </div>
                       </div>
                     </td>
@@ -107,7 +141,7 @@ export default function ReportTable({ items, showReporter = false, expandable = 
                     </td>
                     <td className="px-4 py-3.5"><SeverityPill severity={r.severity} /></td>
                     <td className="px-4 py-3.5"><StatusPill status={r.status} /></td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-right text-xs text-slate-400">{clockBn(r.time)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right text-xs text-slate-400">{clockBn(r.incident_time || r.time)}</td>
                     {expandable && (
                       <td className="px-2 py-3.5 text-slate-300">
                         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
@@ -131,18 +165,19 @@ export default function ReportTable({ items, showReporter = false, expandable = 
       {/* mobile cards */}
       <div className="space-y-2.5 sm:hidden">
         {items.map((r) => {
-          const Icon = TypeIcon(r.type);
+          const reportType = getReportType(r);
+          const Icon = disasterType(reportType).icon;
           const open = openId === r.id;
           return (
             <div key={r.id} className="rounded-xl border border-slate-100 bg-white p-3.5" onClick={() => toggle(r.id)}>
               <div className="flex items-start gap-3">
-                <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", disasterType(r.type).iconBox)}>
+                <span className={cn("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", disasterType(reportType).iconBox)}>
                   <Icon size={17} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13.5px] font-semibold leading-snug text-slate-700">{r.title}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    {r.id} • {r.upazila}, {r.district} • {clockBn(r.time)}
+                    {r.id} • {r.upazila}, {r.district} • {clockBn(r.incident_time || r.time)}
                   </p>
                 </div>
               </div>

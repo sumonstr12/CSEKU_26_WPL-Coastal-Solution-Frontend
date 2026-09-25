@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Camera, CircleCheck, FilePlus, LoaderCircle, LocateFixed, MapPin, Megaphone, Upload, Users } from "lucide-react";
 import ErrorState from "../../components/dashboard/ErrorState";
 import Panel, { PageHeader } from "../../components/dashboard/Panel";
 import { SEVERITY, DISASTER_TYPES } from "../../config/disasterTypes";
 import { useAuth } from "../../context/AuthContext";
-import { dashboardService } from "../../services/dashboardService";
+import myaxios from "../../../utils/myaxios";
 import { bn } from "../../utils/format";
 import { cn } from "../../utils/cn.js";
 
 const SEVERITY_OPTS = [
+  
   { key: "LOW", hint: "সাধারণ পর্যবেক্ষণযোগ্য ঘটনা" },
   { key: "MODERATE", hint: "ক্ষতি শুরু হয়েছে, নজরদারি প্রয়োজন" },
   { key: "HIGH", hint: "দ্রুত সাড়া প্রয়োজন" },
@@ -18,8 +19,17 @@ const SEVERITY_OPTS = [
 
 export default function ReportDisasterPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ type: "surge", severity: "MODERATE", title: "", place: "", description: "", affected: "", photo: null });
+  const [form, setForm] = useState({
+    type: "surge",
+    severity: "MODERATE",
+    title: "",
+    place: "",
+    district: "",
+    upazila: "",
+    description: "",
+    affected: "",
+    photo: null,
+  });
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,11 +38,35 @@ export default function ReportDisasterPage() {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      setError("আপনার browser location support করে না");
+      return;
+    }
+
     setLocating(true);
-    setTimeout(() => {
-      set("place", `${user.upazila}, ${user.district} (GPS: আনুমানিক)`);
-      setLocating(false);
-    }, 800);
+    setError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+
+        set(
+          "place",
+          `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+        );
+
+        setLocating(false);
+      },
+      () => {
+        setError("GPS location পাওয়া যায়নি। অনুগ্রহ করে স্থানটি manually লিখুন।");
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   const submit = async (e) => {
@@ -41,20 +75,74 @@ export default function ReportDisasterPage() {
     if (!form.title.trim()) return setError("রিপোর্টের শিরোনাম লিখুন");
     if (!form.place.trim()) return setError("ঘটনার স্থান লিখুন অথবা GPS ব্যবহার করুন");
     if (form.description.trim().length < 20) return setError("বর্ণনা কমপক্ষে ২০ অক্ষরের হতে হবে — সহায়তার জন্য যথেষ্ট তথ্য দিন");
+    if (!form.district.trim()) {
+      return setError("জেলার নাম লিখুন");
+    }
+
+    if (!form.upazila.trim()) {
+      return setError("উপজেলার নাম লিখুন");
+    }
     setBusy(true);
     try {
-      const report = await dashboardService.submitReport(
-        {
-          type: form.type,
-          severity: form.severity,
-          title: form.title.trim(),
-          place: form.place.trim(),
-          description: form.description.trim(),
-          affected: Number(form.affected) || null,
+      const selectedType = DISASTER_TYPES[form.type];
+
+    if (!selectedType?.backendId) {
+      throw new Error("Invalid disaster type");
+    }
+
+    const formData = new FormData();
+
+    formData.append("category", String(selectedType.backendId));
+    formData.append("description", form.description.trim());
+    formData.append("description_bn", form.description.trim());
+
+    formData.append("situation", "stable");
+
+    const fullAddress = [
+      form.place.trim(),
+      form.upazila.trim(),
+      form.district.trim(),
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    formData.append("address", fullAddress);
+
+    formData.append("district", form.district.trim());
+    formData.append("upazila", form.upazila.trim());
+    formData.append("village", form.place.trim());
+
+    formData.append(
+      "reporter_name",
+      user?.name || user?.nameEn || ""
+    );
+
+    formData.append("is_anonymous", "false");
+
+    formData.append(
+      "affected_people_estimate",
+      String(Number(form.affected) || 0)
+    );
+
+    formData.append("is_sos", "false");
+
+    if (form.photo) {
+      formData.append("files", form.photo);
+    }
+
+    const response = await myaxios.post(
+      "incidents/create/",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
         },
-        user
-      );
-      setDone(report);
+      }
+    );
+
+    const report = response.data?.data || response.data;
+
+    setDone(report);
     } catch {
       setError("রিপোর্ট জমা দেওয়া যায়নি — আবার চেষ্টা করুন");
     } finally {
@@ -136,11 +224,27 @@ export default function ReportDisasterPage() {
             </div>
             <div>
               <label className="label">জেলা</label>
-              <input className="input bg-slate-50" value={user.district} readOnly />
+              <div>
+              <label className="label">জেলা *</label>
+              <input
+                className="input"
+                placeholder="যেমন: সাতক্ষীরা"
+                value={form.district}
+                onChange={(e) => set("district", e.target.value)}
+              />
+            </div>
             </div>
             <div>
               <label className="label">উপজেলা</label>
-              <input className="input bg-slate-50" value={user.upazila} readOnly />
+              <div>
+              <label className="label">উপজেলা *</label>
+              <input
+                className="input"
+                placeholder="যেমন: শ্যামনগর"
+                value={form.upazila}
+                onChange={(e) => set("upazila", e.target.value)}
+              />
+            </div>
             </div>
           </div>
         </Panel>
