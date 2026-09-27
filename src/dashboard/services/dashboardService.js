@@ -44,13 +44,38 @@ import {
 const pendingCount = () => reports.filter((r) => r.status === "PENDING").length;
 const openRequests = () => rescueRequests.filter((r) => r.status === "OPEN");
 const unread = (role) => (notifications[role] || []).filter((n) => !n.read).length;
-const criticalDisasters = () => activeDisasters.filter((d) => d.severity === "CRITICAL" || d.severity === "HIGH");
+const criticalDisasters = () =>
+  activeDisasters.filter((d) => d.severity === "CRITICAL" || d.severity === "HIGH");
+
+const sessionRole = () => {
+  try {
+    return JSON.parse(localStorage.getItem("cgbd.session") || "{}")?.role;
+  } catch {
+    return null;
+  }
+};
+
+const isOfficer = (role) =>
+  (role || sessionRole()) === "DISASTER_MANAGEMENT_OFFICER";
+
+const OFFICER_SECTIONS = [
+  "monitoring",
+  "verification",
+  "rescue-operations",
+  "risk-analysis",
+  "areas",
+];
 
 /* ================= Public / shared getters ================= */
 
 export const dashboardService = {
   /* ---------- Sidebar badges ---------- */
-  getBadgeCounts(role) {
+  async getBadgeCounts(role) {
+    if (isOfficer(role)) {
+      const { data } = await myaxios.get("dashboard/officer/badges/");
+      return data;
+    }
+
     return mockRequest(() => ({
       notifications: unread(role),
       reports: role === "CITIZEN" ? myReports.length : reports.length,
@@ -65,116 +90,88 @@ export const dashboardService = {
     }));
   },
 
-  getNotifications(role) {
+  async getNotifications(role) {
+    if (isOfficer(role)) {
+      const { data } = await myaxios.get("dashboard/officer/notifications/");
+      return data;
+    }
     return mockRequest(() => notifications[role] || notifications.default || []);
   },
 
   async markAllNotificationsRead(role) {
+    if (isOfficer(role)) {
+      const { data } = await myaxios.post("dashboard/officer/notifications/read-all/");
+      return data;
+    }
     mockMarkAllRead(role);
     return mockRequest(() => notifications[role] || []);
   },
 
   async getReports(scope = "all", user) {
-    const response = await fetch(
-      "http://127.0.0.1:8000/api/v1/incidents/",
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch reports");
+    if (isOfficer(user?.role)) {
+      const { data } = await myaxios.get("dashboard/officer/reports/");
+      return data;
     }
 
-    const result = await response.json();
-
-    console.log("INCIDENTS API RESPONSE:", result);
-
-    const incidents = result.results || result.data || result;
+    const response = await myaxios.get("incidents/");
+    const result = response.data;
+    const incidents = result.results || result.data || result || [];
 
     const normalizedIncidents = incidents.map((incident) => ({
       ...incident,
-
-      // ReportTable fields
       type: incident.type || null,
       upazila: incident.upazila || "",
       district: incident.district || "",
       description: incident.description || "",
-
-      // Backend → Frontend field mapping
-      affected:
-        incident.affected ??
-        incident.affected_people_estimate ??
-        null,
-
+      affected: incident.affected ?? incident.affected_people_estimate ?? null,
       time:
         incident.time ??
         incident.incident_time ??
         incident.report_time ??
         incident.created_at ??
         null,
-
       reporter: incident.reporter_name
-        ? {
-            name: incident.reporter_name,
-          }
+        ? { name: incident.reporter_name }
         : null,
     }));
 
-    console.log("NORMALIZED INCIDENTS:", normalizedIncidents);
-
     if (scope === "mine") {
-      const mine = normalizedIncidents.filter(
-        (incident) =>
+      const currentUserName = (user?.name || user?.nameEn || "").trim().toLowerCase();
+      return normalizedIncidents.filter((incident) => {
+        const reporterName = (incident.reporter_name || "").trim().toLowerCase();
+        return (
+          reporterName === currentUserName ||
           incident.reporter_name === user?.name ||
           incident.reporter_name === user?.nameEn
-      );
-
-      console.log("MY REPORTS:", mine);
-      return mine;
+        );
+      });
     }
 
     return normalizedIncidents;
-    console.log("CURRENT USER:", user);
-
-    if (scope === "mine") {
-      const currentUserName = (
-        user?.name ||
-        user?.nameEn ||
-        ""
-      ).trim().toLowerCase();
-
-      const myReports = incidents.filter((incident) => {
-        const reporterName = (
-          incident.reporter_name ||
-          ""
-        ).trim().toLowerCase();
-
-        return reporterName === currentUserName;
-      });
-
-      console.log("MY REPORTS:", myReports);
-
-      return myReports;
-    }
-
-    if (scope === "community") {
-      return incidents;
-    }
-
-    return incidents;
   },
-  getShelters(filter = {}) {
+
+  async getShelters(filter = {}) {
+    if (isOfficer()) {
+      const { data } = await myaxios.get("dashboard/officer/shelters/");
+      const rows = data || [];
+      if (filter.district && filter.district !== "সব") {
+        return rows.filter((s) => s.district === filter.district);
+      }
+      return rows;
+    }
+
     return mockRequest(() =>
-      shelters.filter((s) => !filter.district || filter.district === "সব" || s.district === filter.district)
+      shelters.filter(
+        (s) => !filter.district || filter.district === "সব" || s.district === filter.district
+      )
     );
   },
 
-  getMapData() {
+  async getMapData() {
+    if (isOfficer()) {
+      const { data } = await myaxios.get("dashboard/officer/map/");
+      return data;
+    }
     return mockRequest(() => ({ reports, shelters, activeDisasters, mapDistricts }));
   },
 
@@ -200,23 +197,9 @@ export const dashboardService = {
   /* ================= Role overview payloads ================= */
 
   async getCitizenOverview() {
-  const response = await fetch(
-    "http://127.0.0.1:8000/api/v1/dashboard/citizen/overview/",
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch citizen dashboard");
-  }
-
-  return await response.json();
-},
+    const { data } = await myaxios.get("dashboard/citizen/overview/");
+    return data;
+  },
 
   getVolunteerOverview() {
     return mockRequest(() => ({
@@ -267,23 +250,9 @@ export const dashboardService = {
     }));
   },
 
-  getOfficerOverview() {
-    return mockRequest(() => ({
-      stats: [
-        { key: "active", label: "সক্রিয় দুর্যোগ", value: activeDisasters.length, hint: "খুলনা অঞ্চল", tone: "red", icon: "Radar" },
-        { key: "riskAreas", label: "উচ্চ ঝুঁকিপূর্ণ এলাকা", value: districtRisk.filter((d) => d.risk >= 60).length, hint: "পূর্বাভাস বিশ্লেষণে", tone: "amber", icon: "MapPinned" },
-        { key: "pending", label: "অপেক্ষমাণ রিপোর্ট", value: 18, hint: "যাচাই সারিতে", tone: "lagoon", icon: "ClipboardList" },
-        { key: "ops", label: "চলমান উদ্ধার অভিযান", value: operations.filter((o) => o.status === "IN_PROGRESS").length, hint: "৩টি জেলায়", tone: "sky", icon: "LifeBuoy" },
-        { key: "shelters", label: "উপলব্ধ আশ্রয়কেন্দ্র", value: shelters.filter((s) => ["OPEN", "READY"].includes(s.status)).length, hint: "মোট ধারণক্ষমতা ১৬,৭০০", tone: "emerald", icon: "Warehouse" },
-        { key: "verified", label: "যাচাইকৃত ঘটনা", value: reports.filter((r) => r.status === "VERIFIED").length + 26, hint: "চলতি মৌসুমে", tone: "sand", icon: "BadgeCheck" },
-      ],
-      alert: criticalDisasters()[0],
-      region: { name: "খুলনা অঞ্চল", alerts: 4, highRisk: 7, pending: 18, districts: districtRisk.slice(0, 5) },
-      reportsByType,
-      monthlyTrend,
-      priorityReports: reports.filter((r) => ["HIGH", "CRITICAL"].includes(r.severity) && r.status !== "RESOLVED").slice(0, 5),
-      operations,
-    }));
+  async getOfficerOverview() {
+    const { data } = await myaxios.get("dashboard/officer/overview/");
+    return data;
   },
 
   getAdminOverview() {
@@ -308,10 +277,13 @@ export const dashboardService = {
 
   /* ================= Section page data (generic) ================= */
 
-  getSectionData(key, user) {
-    const role = user?.role;
+  async getSectionData(key, user) {
+    if (isOfficer(user?.role) && OFFICER_SECTIONS.includes(key)) {
+      const { data } = await myaxios.get(`dashboard/officer/section/${key}/`);
+      return data;
+    }
+
     const builders = {
-      /* ----- shared-ish ----- */
       missions: () => ({
         stats: [
           { label: "সক্রিয় মিশন", value: missions.filter((m) => m.status === "IN_PROGRESS").length, tone: "red", icon: "Target" },
@@ -375,7 +347,6 @@ export const dashboardService = {
         stats: [],
         blocks: [{ type: "awarenessCards", items: awarenessItems }],
       }),
-      /* ----- officer ----- */
       monitoring: () => ({
         stats: [
           { label: "সক্রিয় সতর্কতা", value: 4, tone: "red", icon: "Radar" },
@@ -406,7 +377,6 @@ export const dashboardService = {
         ],
         blocks: [{ type: "areaTreeCards", title: "প্রশাসনিক কাঠামো", items: areaTree }],
       }),
-      /* ----- admin ----- */
       users: () => ({
         stats: [
           { label: "মোট ব্যবহারকারী", value: 2332, tone: "lagoon", icon: "Users", delta: { dir: "up", label: "২১৪ জন এ সপ্তাহে" } },
@@ -453,7 +423,12 @@ export const dashboardService = {
     return mockRequest(() => availabilityLog);
   },
 
-  getProfileData(user) {
+  async getProfileData(user) {
+    if (isOfficer(user?.role)) {
+      const { data } = await myaxios.get("dashboard/officer/profile/");
+      return data;
+    }
+
     const statsByRole = {
       CITIZEN: [
         { label: "মোট রিপোর্ট", value: myReports.length, tone: "lagoon", icon: "NotebookPen" },
@@ -476,6 +451,7 @@ export const dashboardService = {
         { label: "সক্রিয় দিন", value: 240, tone: "emerald", icon: "CalendarDays" },
       ],
     };
+
     return mockRequest(() => ({
       stats: statsByRole[user.role] || statsByRole._default,
       activities: activities[user.role] || activities.default,
@@ -485,75 +461,55 @@ export const dashboardService = {
   /* ================= Mutations ================= */
 
   async submitReport(payload, user) {
-  const selectedType = DISASTER_TYPES[payload.type];
+    const selectedType = DISASTER_TYPES[payload.type];
 
-  if (!selectedType?.backendId) {
-    throw new Error("Invalid disaster category");
-  }
-
-  const formData = new FormData();
-
-  formData.append("category", String(selectedType.backendId));
-
-  formData.append("description", payload.description);
-  formData.append("description_bn", payload.description);
-
-  formData.append("situation", "worsening");
-
-  formData.append(
-    "address",
-    payload.place || `${user?.upazila || ""}, ${user?.district || ""}`
-  );
-
-  if (user?.upazila) {
-    formData.append("upazila", user.upazila);
-  }
-
-  if (user?.district) {
-    formData.append("district", user.district);
-  }
-
-  formData.append("is_anonymous", "false");
-
-  if (user?.name) {
-    formData.append("reporter_name", user.name);
-  }
-
-  if (user?.phone) {
-    formData.append("reporter_phone", user.phone);
-  }
-
-  formData.append("incident_time", new Date().toISOString());
-
-  if (payload.affected != null) {
-    formData.append(
-      "affected_people_estimate",
-      String(payload.affected)
-    );
-  }
-
-  formData.append("is_sos", "false");
-
-  if (payload.photo) {
-    formData.append("files", payload.photo);
-  }
-
-  const response = await myaxios.post(
-    "incidents/create/",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+    if (!selectedType?.backendId) {
+      throw new Error("Invalid disaster category");
     }
-  );
 
-  console.log("CREATE INCIDENT RESPONSE:", response.data);
+    const formData = new FormData();
 
-  return response.data?.data || response.data;
-},
+    formData.append("category", String(selectedType.backendId));
+    formData.append("description", payload.description);
+    formData.append("description_bn", payload.description);
+    formData.append("situation", "worsening");
+    formData.append(
+      "address",
+      payload.place || `${user?.upazila || ""}, ${user?.district || ""}`
+    );
+
+    if (user?.upazila) formData.append("upazila", user.upazila);
+    if (user?.district) formData.append("district", user.district);
+
+    formData.append("is_anonymous", "false");
+
+    if (user?.name) formData.append("reporter_name", user.name);
+    if (user?.phone) formData.append("reporter_phone", user.phone);
+
+    formData.append("incident_time", new Date().toISOString());
+
+    if (payload.affected != null) {
+      formData.append("affected_people_estimate", String(payload.affected));
+    }
+
+    formData.append("is_sos", "false");
+
+    if (payload.photo) {
+      formData.append("files", payload.photo);
+    }
+
+    const response = await myaxios.post("incidents/create/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response.data?.data || response.data;
+  },
 
   async verifyReport(id, action) {
+    if (isOfficer()) {
+      const { data } = await myaxios.post(`dashboard/officer/reports/${id}/verify/`, { action });
+      return data;
+    }
     mockVerifyReport(id, action);
     return mockRequest({ id, action });
   },
