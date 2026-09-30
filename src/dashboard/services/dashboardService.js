@@ -23,7 +23,6 @@ import {
   mapDistricts,
   missions,
   mockAddReport,
-  mockCompleteTask,
   mockMarkAllRead,
   mockSetAvailability,
   mockVerifyReport,
@@ -66,11 +65,82 @@ const OFFICER_SECTIONS = [
   "areas",
 ];
 
+const normalizeIncidentStatus = (status) => {
+  const statusMap = {
+    submitted: "PENDING",
+    under_review: "PENDING",
+    verified: "VERIFIED",
+    assigned: "ASSIGNED",
+    in_progress: "IN_PROGRESS",
+    resolved: "RESOLVED",
+    rejected: "REJECTED",
+    duplicate: "DUPLICATE",
+    closed: "CLOSED",
+  };
+  const value = String(status || "").toLowerCase();
+  return statusMap[value] || value.toUpperCase();
+};
+
+const normalizeIncidentSeverity = (severity) => {
+  const numericMap = {
+    1: "LOW",
+    2: "LOW",
+    3: "MODERATE",
+    4: "HIGH",
+    5: "CRITICAL",
+  };
+  const stringMap = {
+    low: "LOW",
+    medium: "MODERATE",
+    moderate: "MODERATE",
+    high: "HIGH",
+    critical: "CRITICAL",
+  };
+  if (severity == null || severity === "") return "UNKNOWN";
+  const numericSeverity = Number(severity);
+  if (Number.isInteger(numericSeverity) && numericMap[numericSeverity]) {
+    return numericMap[numericSeverity];
+  }
+  return stringMap[String(severity).toLowerCase()] || "UNKNOWN";
+};
+
 /* ================= Public / shared getters ================= */
 
 export const dashboardService = {
   /* ---------- Sidebar badges ---------- */
   async getBadgeCounts(role) {
+    const response = await myaxios.get("notifications/");
+
+    const notificationData = response.data?.data || [];
+
+    if (role === "COMMUNITY_VOLUNTEER") {
+      const [incidentsResponse, overview] = await Promise.all([
+        myaxios.get("incidents/"),
+        this.getVolunteerOverview(),
+      ]);
+      const incidentCount = incidentsResponse.data?.count ?? incidentsResponse.data?.data?.length ?? 0;
+      const activeTaskCount = overview.stats?.find((stat) => stat.key === "tasks")?.value ?? 0;
+
+      return {
+        notifications: notificationData.filter((notification) => !notification.read).length,
+        reports: incidentCount,
+        myReports: 0,
+        verification: 0,
+        requests: 0,
+        missions: 0,
+        operations: 0,
+        community: incidentCount,
+        assistance: activeTaskCount,
+        monitoring: 0,
+      };
+    }
+
+    return {
+      notifications: notificationData.filter(
+        (notification) => !notification.read
+      ).length,
+
+      // এগুলো আপাতত আগের মতো mock থাকবে
     if (isOfficer(role)) {
       const { data } = await myaxios.get("dashboard/officer/badges/");
       return data;
@@ -84,12 +154,50 @@ export const dashboardService = {
       requests: openRequests().length,
       missions: missions.filter((m) => m.status !== "DONE").length,
       operations: operations.filter((o) => o.status === "IN_PROGRESS").length,
-      community: reports.filter((r) => r.upazila === "কয়রা" || r.district === "খুলনা").length,
+      community: reports.filter(
+        (r) => r.upazila === "কয়রা" || r.district === "খুলনা"
+      ).length,
       assistance: assistanceTasks.filter((t) => t.status !== "DONE").length,
       monitoring: criticalDisasters().length,
+    };
+  },
+
+  async getNotifications() {
+    const response = await myaxios.get("notifications/");
+
+    const notifications = response.data?.data || [];
+
+    const typeMap = {
+      report_submission: "report",
+      report_update: "report",
+      alert: "alert",
+      critical_alert: "alert",
+      assignment: "mission",
+      reminder: "system",
+      broadcast: "system",
+    };
+
+    return notifications.map((notification) => ({
+      id: notification.id,
+      kind: typeMap[notification.type] || "system",
+      title: notification.subject,
+      body: notification.body,
+      read: notification.read,
+      time: notification.created_at,
+      status: notification.status,
+      incidentId: notification.incident_id,
+      alertId: notification.alert_id,
     }));
   },
 
+  async markAllNotificationsRead() {
+    const response = await myaxios.post("notifications/read-all/");
+    return response.data;
+  },
+
+  async markNotificationRead(id) {
+    const response = await myaxios.post(`notifications/${id}/read/`);
+    return response.data;
   async getNotifications(role) {
     if (isOfficer(role)) {
       const { data } = await myaxios.get("dashboard/officer/notifications/");
@@ -120,6 +228,8 @@ export const dashboardService = {
     const normalizedIncidents = incidents.map((incident) => ({
       ...incident,
       type: incident.type || null,
+      status: normalizeIncidentStatus(incident.status),
+      severity: normalizeIncidentSeverity(incident.severity),
       upazila: incident.upazila || "",
       district: incident.district || "",
       description: incident.description || "",
@@ -149,6 +259,17 @@ export const dashboardService = {
 
     return normalizedIncidents;
   },
+  async getShelters(filter = {}, user) {
+    if (user?.role === "COMMUNITY_VOLUNTEER") {
+      const response = await myaxios.get("dashboard/volunteer/shelters/", {
+        params: filter.incidentId ? { incident: filter.incidentId } : undefined,
+      });
+      const rows = response.data?.data || [];
+      return filter.incidentId
+        ? { shelters: rows, incident: response.data?.incident || null }
+        : rows;
+    }
+
 
   async getShelters(filter = {}) {
     if (isOfficer()) {
@@ -167,6 +288,25 @@ export const dashboardService = {
     );
   },
 
+  async getMapData(user) {
+    if (user?.role === "COMMUNITY_VOLUNTEER") {
+      const [reportsResult, sheltersResult, overviewResult] = await Promise.allSettled([
+        this.getReports("all", user),
+        this.getShelters({}, user),
+        this.getVolunteerOverview(),
+      ]);
+
+      return {
+        liveVolunteerMap: true,
+        reports: reportsResult.status === "fulfilled" ? reportsResult.value : [],
+        shelters: sheltersResult.status === "fulfilled" ? sheltersResult.value : [],
+        area: overviewResult.status === "fulfilled" ? overviewResult.value.area : null,
+        errors: {
+          reports: reportsResult.status === "rejected" ? "রিপোর্টের অবস্থান লোড করা যায়নি।" : "",
+          shelters: sheltersResult.status === "rejected" ? "আশ্রয়কেন্দ্রের অবস্থান লোড করা যায়নি।" : "",
+          area: overviewResult.status === "rejected" ? "নির্ধারিত এলাকার তথ্য লোড করা যায়নি।" : "",
+        },
+      };
   async getMapData() {
     if (isOfficer()) {
       const { data } = await myaxios.get("dashboard/officer/map/");
@@ -201,20 +341,9 @@ export const dashboardService = {
     return data;
   },
 
-  getVolunteerOverview() {
-    return mockRequest(() => ({
-      stats: [
-        { key: "incidents", label: "স্থানীয় সক্রিয় ঘটনা", value: 8, hint: "খুলনা অঞ্চলে", tone: "amber", icon: "Activity", delta: { dir: "up", label: "৩টি নতুন আজ" } },
-        { key: "pending", label: "অপেক্ষমাণ রিপোর্ট", value: pendingCount(), hint: "যাচাই প্রয়োজন", tone: "lagoon", icon: "ClipboardList" },
-        { key: "tasks", label: "নির্ধারিত কার্যক্রম", value: assistanceTasks.filter((t) => t.status !== "DONE").length, hint: "আপনার জন্য বরাদ্দ", tone: "sky", icon: "ListChecks" },
-        { key: "people", label: "সহায়তাপ্রয়োজন মানুষ", value: 23, hint: "নিবন্ধিত তালিকা অনুযায়ী", tone: "emerald", icon: "HandHeart" },
-      ],
-      alert: criticalDisasters()[0],
-      tasks: assistanceTasks,
-      communityReports: reports.filter((r) => ["খুলনা", "সাতক্ষীরা"].includes(r.district)).slice(0, 5),
-      activities: activities.COMMUNITY_VOLUNTEER,
-      area: { district: "খুলনা", upazila: "কয়রা", incidents: 8, shelters: 3, volunteers: 24 },
-    }));
+  async getVolunteerOverview() {
+    const response = await myaxios.get("dashboard/volunteer/overview/");
+    return response.data?.data || response.data;
   },
 
   getResponderOverview() {
@@ -278,6 +407,63 @@ export const dashboardService = {
   /* ================= Section page data (generic) ================= */
 
   async getSectionData(key, user) {
+    const role = user?.role;
+
+    if (key === "my-area" && role === "COMMUNITY_VOLUNTEER") {
+      const [overview, areaReports] = await Promise.all([
+        this.getVolunteerOverview(),
+        this.getReports("all", user),
+      ]);
+      const area = overview.area || {};
+
+      return {
+        stats: [
+          { label: "সক্রিয় ঘটনা", value: area.incidents ?? 0, tone: "amber", icon: "Activity" },
+          { label: "আশ্রয়কেন্দ্র", value: area.shelters ?? 0, tone: "sky", icon: "Warehouse" },
+          { label: "নিবন্ধিত স্বেচ্ছাসেবক", value: area.volunteers ?? 0, tone: "emerald", icon: "HandHeart" },
+        ],
+        blocks: [
+          {
+            type: "areaPanel",
+            title: "আপনার দায়িত্বপূর্ণ এলাকা",
+            subtitle: "প্রোফাইলে নির্ধারিত এলাকা",
+            area: {
+              volunteerArea: true,
+              district: area.district,
+              upazila: area.upazila,
+              incidents: area.incidents ?? 0,
+              shelters: area.shelters ?? 0,
+              volunteers: area.volunteers ?? 0,
+            },
+          },
+          {
+            type: "reportTable",
+            title: "এলাকার সাম্প্রতিক রিপোর্ট",
+            items: areaReports,
+          },
+        ],
+      };
+    }
+
+    if (key === "assistance" && role === "COMMUNITY_VOLUNTEER") {
+      const overview = await this.getVolunteerOverview();
+      const tasks = (overview.tasks || []).map((task) => ({
+        ...task,
+        status: task.status === "DONE" || task.status === "completed"
+          ? "DONE"
+          : ["ONGOING", "IN_PROGRESS", "accepted", "in_progress"].includes(task.status)
+            ? "ONGOING"
+            : "PENDING",
+      }));
+
+      return {
+        stats: [
+          { label: "নির্ধারিত কার্যক্রম", value: tasks.filter((task) => task.status !== "DONE").length, tone: "lagoon", icon: "ListChecks" },
+          { label: "চলমান", value: tasks.filter((task) => task.status === "ONGOING").length, tone: "amber", icon: "Activity" },
+          { label: "সম্পন্ন কার্যক্রম", value: tasks.filter((task) => task.status === "DONE").length, tone: "emerald", icon: "CircleCheck" },
+        ],
+        blocks: [{ type: "taskCards", title: "সহায়তা কার্যক্রম", items: tasks }],
+      };
     if (isOfficer(user?.role) && OFFICER_SECTIONS.includes(key)) {
       const { data } = await myaxios.get(`dashboard/officer/section/${key}/`);
       return data;
@@ -424,6 +610,17 @@ export const dashboardService = {
   },
 
   async getProfileData(user) {
+    console.log("🔥 getProfileData CALLED");
+
+    const response = await myaxios.get("users/me/profile/");
+
+    const profile = response.data?.data || {};
+
+    return {
+      profile,
+      stats: [],
+      activities: [],
+    };
     if (isOfficer(user?.role)) {
       const { data } = await myaxios.get("dashboard/officer/profile/");
       return data;
@@ -515,12 +712,22 @@ export const dashboardService = {
   },
 
   async setAvailability(user, status) {
+    if (user?.role === "COMMUNITY_VOLUNTEER") {
+      const response = await myaxios.patch("users/me/profile/", {
+        availability_status: status,
+      });
+      return response.data?.data || response.data;
+    }
+
     mockSetAvailability(user, status);
     return mockRequest({ status });
   },
 
   async completeTask(id) {
-    mockCompleteTask(id);
-    return mockRequest({ id });
+    const response = await myaxios.patch(
+      `dashboard/volunteer/tasks/${id}/status/`,
+      { status: "completed" }
+    );
+    return response.data?.data || response.data;
   },
 };

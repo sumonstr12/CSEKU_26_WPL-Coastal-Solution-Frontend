@@ -21,8 +21,12 @@ const FILTERS = [
   { key: "ALL", label: "সব" },
   { key: "PENDING", label: REPORT_STATUS.PENDING.label },
   { key: "VERIFIED", label: REPORT_STATUS.VERIFIED.label },
+  { key: "ASSIGNED", label: REPORT_STATUS.ASSIGNED.label },
   { key: "IN_PROGRESS", label: REPORT_STATUS.IN_PROGRESS.label },
   { key: "RESOLVED", label: REPORT_STATUS.RESOLVED.label },
+  { key: "REJECTED", label: REPORT_STATUS.REJECTED.label },
+  { key: "DUPLICATE", label: REPORT_STATUS.DUPLICATE.label },
+  { key: "CLOSED", label: REPORT_STATUS.CLOSED.label },
 ];
 
 export default function ReportsPage({ mode = "all" }) {
@@ -90,6 +94,7 @@ export default function ReportsPage({ mode = "all" }) {
               actionLabel: mode === "mine" ? "প্রথম রিপোর্ট করুন" : undefined,
               actionTo: "/dashboard/report-disaster",
             }}
+            showShelterLink={mode === "community" && user?.role === "COMMUNITY_VOLUNTEER"}
           />
         </Panel>
       )}
