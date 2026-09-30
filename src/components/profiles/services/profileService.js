@@ -1,67 +1,43 @@
-import { seedUsers } from "@/components/profiles/data/users";
-
 /**
- * Profile "service" layer — client-only, no backend/database required.
+ * Profile service — Django backend via custom axios (myaxios).
  *
- * Mirrors the exact same async contract the app previously used against
- * a Next.js API route ({ status, data } / { status, message }), so
- * src/hooks/useProfile.jsx did not need any logic changes: only the
- * underlying data source moved, from a server route + Postgres to the
- * local seed data in src/data/users.js.
+ * GET  /api/profiles/me/
+ * PATCH /api/profiles/me/
+ *
+ * Contract:
+ *   { status: true, data: profileObject }
+ *   { status: true, message: "...", data: profileObject }
  */
 
-const DEFAULT_ROLE = "COMMUNITY_VOLUNTEER";
+import myaxios from "../../../utils/myaxios";
 
-const BASE_USERS = seedUsers();
-const store = new Map();
-
-function isRole(value) {
-  return Boolean(value && value in BASE_USERS);
+export async function getProfile() {
+  const { data } = await myaxios.get("/profiles/me/");
+  if (!data?.status) {
+    throw new Error(data?.message || "Failed to load profile");
+  }
+  return data;
 }
 
-function clean(value, fallback) {
-  if (value === undefined) return fallback;
-  if (value === null) return null;
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
-function getUser(role) {
-  const existing = store.get(role);
-  if (existing) return existing;
-  const fresh = structuredClone(BASE_USERS[role]);
-  store.set(role, fresh);
-  return fresh;
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export async function getProfile(role) {
-  const resolvedRole = isRole(role) ? role : DEFAULT_ROLE;
-  await sleep(550);
-  return { status: true, data: getUser(resolvedRole) };
-}
-
-export async function updateProfile(role, updates) {
-  const resolvedRole = isRole(role) ? role : DEFAULT_ROLE;
-  await sleep(650);
-
-  const current = getUser(resolvedRole);
-  const merged = {
-    ...current,
-    full_name:
-      updates.full_name && updates.full_name.trim()
-        ? updates.full_name.trim()
-        : current.full_name,
-    email: clean(updates.email, current.email),
-    date_of_birth: clean(updates.date_of_birth, current.date_of_birth),
-    district: clean(updates.district, current.district),
-    address: clean(updates.address ?? undefined, current.address ?? null),
-    profile: { ...current.profile, ...(updates.profile ?? {}) },
-  };
-
-  store.set(resolvedRole, merged);
-  return { status: true, message: "প্রোফাইল আপডেট হয়েছে", data: merged };
+/**
+ * Payload matches ProfileEditModal.buildPayload():
+ * {
+ *   full_name, email, date_of_birth, district, address,
+ *   profile: {
+ *     organization?, designation?, responder_type?,
+ *     availability_status?, administrative_area?,
+ *     administrative_areas?
+ *   }
+ * }
+ */
+export async function updateProfile(updates) {
+  const { data } = await myaxios.patch("/profiles/me/", updates);
+  if (!data?.status) {
+    const err = new Error(data?.message || "Failed to update profile");
+    err.errors = data?.errors;
+    throw err;
+  }
+  return data;
 }
 
 export const profileService = { getProfile, updateProfile };
