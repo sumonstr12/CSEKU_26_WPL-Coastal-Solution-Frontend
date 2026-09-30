@@ -1,5 +1,4 @@
 import { Fragment, useState } from "react";
-import { Link } from "react-router-dom";
 import { BadgeCheck, ChevronDown, MapPin, Users, CircleCheck } from "lucide-react";
 import { disasterType } from "../../config/disasterTypes";
 import { SeverityPill, StatusPill } from "../ui/Badge";
@@ -11,7 +10,7 @@ import { cn } from "../../utils/cn.js";
  * Reusable disaster report table — responsive (table ≥ sm, cards on mobile),
  * expandable rows, optional verify/reject actions.
  */
-export default function ReportTable({ items, showReporter = false, expandable = true, onVerify, verifyBusy, showShelterLink = false, empty = {} }) {
+export default function ReportTable({ items, showReporter = false, expandable = true, onVerify, verifyBusy, empty = {} }) {
   const [openId, setOpenId] = useState(null);
   const CATEGORY_TYPE = {
     1: "cyclone",
@@ -109,7 +108,6 @@ const getReportType = (r) => {
               <th className="px-4 py-3">গুরুত্ব</th>
               <th className="px-4 py-3">অবস্থা</th>
               <th className="px-4 py-3 text-right">সময়</th>
-              {showShelterLink && <th className="px-4 py-3 text-right">আশ্রয়কেন্দ্র</th>}
               {expandable && <th className="w-8 px-2 py-3" />}
             </tr>
           </thead>
@@ -144,17 +142,6 @@ const getReportType = (r) => {
                     <td className="px-4 py-3.5"><SeverityPill severity={r.severity} /></td>
                     <td className="px-4 py-3.5"><StatusPill status={r.status} /></td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right text-xs text-slate-400">{clockBn(r.incident_time || r.time)}</td>
-                    {showShelterLink && (
-                      <td className="px-4 py-3.5 text-right">
-                        <Link
-                          to={`/dashboard/shelters?incident=${encodeURIComponent(r.id)}`}
-                          onClick={(event) => event.stopPropagation()}
-                          className="btn-secondary !px-3 !py-1.5 text-xs"
-                        >
-                          আশ্রয়কেন্দ্র দেখুন
-                        </Link>
-                      </td>
-                    )}
                     {expandable && (
                       <td className="px-2 py-3.5 text-slate-300">
                         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
@@ -163,7 +150,7 @@ const getReportType = (r) => {
                   </tr>
                   {open && (
                     <tr className="border-b border-slate-100">
-                      <td colSpan={6 + Number(showShelterLink)} className="bg-white px-4 py-3">
+                      <td colSpan={6} className="bg-white px-4 py-3">
                         {detail(r)}
                       </td>
                     </tr>
@@ -199,15 +186,6 @@ const getReportType = (r) => {
                 <StatusPill status={r.status} />
                 {expandable && <ChevronDown size={15} className={cn("ml-auto text-slate-300 transition-transform", open && "rotate-180")} />}
               </div>
-              {showShelterLink && (
-                <Link
-                  to={`/dashboard/shelters?incident=${encodeURIComponent(r.id)}`}
-                  onClick={(event) => event.stopPropagation()}
-                  className="btn-secondary mt-3 !px-3 !py-1.5 text-xs"
-                >
-                  আশ্রয়কেন্দ্র দেখুন
-                </Link>
-              )}
               {open && <div className="mt-3">{detail(r)}</div>}
             </div>
           );

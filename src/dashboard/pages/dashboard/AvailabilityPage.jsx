@@ -24,27 +24,17 @@ export default function AvailabilityPage() {
   const [status, setStatus] = useState(user.availability || "AVAILABLE");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState("");
-  const [saveError, setSaveError] = useState("");
   const { data: history, loading, error, refetch, silentRefetch } = useDashboard(dashboardService.getAvailabilityHistory, []);
 
   const save = async () => {
     setBusy(true);
     setSaved("");
-    setSaveError("");
-    try {
-      const updatedProfile = await dashboardService.setAvailability(user, status);
-      const persistedStatus = updatedProfile?.availability_status || status;
-      setStatus(persistedStatus);
-      updateUser({ availability: persistedStatus });
-      await silentRefetch();
-      setSaved("Availability সফলভাবে আপডেট হয়েছে");
-      setTimeout(() => setSaved(""), 4000);
-    } catch {
-      setStatus(user.availability || "AVAILABLE");
-      setSaveError("Availability আপডেট করা যায়নি। আবার চেষ্টা করুন।");
-    } finally {
-      setBusy(false);
-    }
+    await dashboardService.setAvailability(user, status);
+    updateUser({ availability: status });
+    await silentRefetch();
+    setSaved("Availability সফলভাবে আপডেট হয়েছে");
+    setBusy(false);
+    setTimeout(() => setSaved(""), 4000);
   };
 
   return (
@@ -88,7 +78,6 @@ export default function AvailabilityPage() {
               {saved}
             </span>
           )}
-          {saveError && <span role="alert" className="text-sm text-red-600">{saveError}</span>}
         </div>
 
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-sand-50 px-4 py-3 text-[12px] leading-relaxed text-sand-700">

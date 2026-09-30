@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   BookOpen,
@@ -10,7 +10,6 @@ import {
   LifeBuoy,
   MapPin,
   MapPinned,
-  MessageSquare,
   Phone,
   Radar,
   Search,
@@ -179,55 +178,35 @@ function OperationCards({ items }) {
   );
 }
 
-function TaskCards({ items: initial, onComplete }) {
+function TaskCards({ items: initial }) {
   const [items, setItems] = useState(initial);
-  const [busyId, setBusyId] = useState(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setItems(initial);
-  }, [initial]);
-
-  const complete = async (id) => {
-    setBusyId(id);
-    setError("");
-    try {
-      if (onComplete) await onComplete(id);
+  const complete = (id) => {
+    dashboardService.completeTask(id);
     setItems((rows) => rows.map((t) => (t.id === id ? { ...t, status: "DONE" } : t)));
-    } catch {
-      setError("কার্যক্রম সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।");
-    } finally {
-      setBusyId(null);
-    }
   };
   if (!items.length) return <EmptyState icon={UserCheck} title="কোনো কার্যক্রম নেই" message="নতুন সহায়তা কার্যক্রম বরাদ্দ হলে এখানে দেখাবে।" />;
   return (
-    <>
-      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
-      <ul className="space-y-3">
-        {items.map((t) => (
-          <li key={t.id} className={cn("flex flex-wrap items-center gap-3.5 rounded-xl border p-4 transition", t.status === "DONE" ? "border-slate-100 bg-slate-50/60 opacity-70" : "border-slate-100 bg-white hover:border-lagoon-200 hover:shadow-card")}>
-            <button
-              disabled={busyId === t.id || t.status === "DONE"}
-              onClick={() => complete(t.id)}
-              title={t.status === "DONE" ? "সম্পন্ন" : "সম্পন্ন হিসেবে চিহ্নিত করুন"}
-              className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition active:scale-90 disabled:cursor-not-allowed", t.status === "DONE" ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 text-transparent hover:border-lagoon-500")}
-            >
-              <CircleCheck size={14} />
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className={cn("text-sm font-bold text-slate-700", t.status === "DONE" && "line-through")}>{t.title}</p>
-              <p className="mt-0.5 text-[12px] text-slate-400">{t.detail}</p>
-              <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
-                <span className="inline-flex items-center gap-1"><MapPin size={10} />{t.place}</span>
-                <span className="inline-flex items-center gap-1"><CalendarDays size={10} />{t.due}</span>
-              </p>
-            </div>
-            <GenericPill tone={t.status === "DONE" ? "emerald" : t.status === "ONGOING" ? "sky" : "amber"}>{t.status === "DONE" ? "সম্পন্ন" : t.status === "ONGOING" ? "চলমান" : "বাকি আছে"}</GenericPill>
-          </li>
-        ))}
-      </ul>
-    </>
+    <ul className="space-y-3">
+      {items.map((t) => (
+        <li key={t.id} className={cn("flex flex-wrap items-center gap-3.5 rounded-xl border p-4 transition", t.status === "DONE" ? "border-slate-100 bg-slate-50/60 opacity-70" : "border-slate-100 bg-white hover:border-lagoon-200 hover:shadow-card")}>
+          <button
+            onClick={() => t.status !== "DONE" && complete(t.id)}
+            className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition active:scale-90", t.status === "DONE" ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 text-transparent hover:border-lagoon-500")}
+          >
+            <CircleCheck size={14} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-sm font-bold text-slate-700", t.status === "DONE" && "line-through")}>{t.title}</p>
+            <p className="mt-0.5 text-[12px] text-slate-400">{t.detail}</p>
+            <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
+              <span className="inline-flex items-center gap-1"><MapPin size={10} />{t.place}</span>
+              <span className="inline-flex items-center gap-1"><CalendarDays size={10} />{t.due}</span>
+            </p>
+          </div>
+          <GenericPill tone={t.status === "DONE" ? "emerald" : t.status === "ONGOING" ? "sky" : "amber"}>{t.status === "DONE" ? "সম্পন্ন" : t.status === "ONGOING" ? "চলমান" : "বাকি আছে"}</GenericPill>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -488,32 +467,6 @@ function AwareIcon(name) {
 }
 
 function AreaPanel({ area, subtitle }) {
-  if (area.volunteerArea) {
-    const metrics = [
-      { label: "সক্রিয় ঘটনা", value: area.incidents },
-      { label: "আশ্রয়কেন্দ্র", value: area.shelters },
-      { label: "স্বেচ্ছাসেবক", value: area.volunteers },
-    ];
-
-    return (
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-lagoon-600 to-lagoon-800 p-5 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-lagoon-100/80">{subtitle || ""}</p>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <p><span className="text-lagoon-100/75">জেলা:</span> <b>{area.district || "তথ্য নেই"}</b></p>
-          <p><span className="text-lagoon-100/75">উপজেলা:</span> <b>{area.upazila || "তথ্য নেই"}</b></p>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-xl bg-white/10 py-3 backdrop-blur">
-              <p className="text-lg font-bold">{metric.value == null ? "তথ্য নেই" : bnNum(metric.value)}</p>
-              <p className="text-[10.5px] text-white/70">{metric.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-lagoon-600 to-lagoon-800 p-5 text-white">
       <p className="text-[11px] font-bold uppercase tracking-wider text-lagoon-100/80">{subtitle || ""}</p>
@@ -620,13 +573,7 @@ export default function SectionPage({ sectionKey }) {
             if (bare) return <Cmp key={i} {...block} subtitle={block.subtitle} />;
             return (
               <Panel key={i} title={block.title} subtitle={block.subtitle}>
-                <Cmp
-                  {...block}
-                  onComplete={sectionKey === "assistance" && user?.role === "COMMUNITY_VOLUNTEER" ? async (id) => {
-                    await dashboardService.completeTask(id);
-                    await silentRefetch();
-                  } : undefined}
-                />
+                <Cmp {...block} />
               </Panel>
             );
           })}
