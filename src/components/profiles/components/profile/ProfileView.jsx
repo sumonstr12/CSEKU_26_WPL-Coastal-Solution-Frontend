@@ -6,7 +6,6 @@ import {
   MapPinned,
   PhoneCall,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { useProfile } from "@/components/profiles/hooks/useProfile";
@@ -15,11 +14,9 @@ import {
   FIELD_META,
   PERSONAL_FIELDS,
   ROLE_CONFIG,
-  ROLES,
 } from "@/components/profiles/config/roleConfig";
 import { isFieldEmpty, resolveFieldValue } from "@/components/profiles/lib/fields";
 import { toBanglaDigits } from "@/components/profiles/lib/bn";
-import { cn } from "@/components/profiles/lib/utils";
 import AdministrativeAreaDisplay from "./AdministrativeAreaDisplay";
 import ProfileCompletion from "./ProfileCompletion";
 import ProfileErrorState from "./ProfileErrorState";
@@ -27,44 +24,6 @@ import ProfileField, { ProfileFieldGrid } from "./ProfileField";
 import ProfileHeader from "./ProfileHeader";
 import ProfileSection from "./ProfileSection";
 import ProfileSkeleton from "./ProfileSkeleton";
-
-/* ------------------------------------------------------------------ */
-/* Demo role switcher                                                  */
-/* ------------------------------------------------------------------ */
-
-function RoleDemoSwitcher({ active, onSwitch }) {
-  return (
-    <div className="animate-fade-in mb-6 rounded-3xl border border-dashed border-teal-300/70 bg-teal-50/50 px-4 py-3.5 sm:px-5">
-      <p className="flex items-center gap-2 text-[13px] font-semibold text-teal-900">
-        <Sparkles className="size-4 shrink-0 text-teal-600" />
-        ডেমো প্রিভিউ — ভূমিকা পরিবর্তন করে প্রতিটি রোলের প্রোফাইল দেখুন
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {ROLES.map((role) => {
-          const config = ROLE_CONFIG[role];
-          const Icon = config.icon;
-          const isActive = role === active;
-          return (
-            <button
-              key={role}
-              type="button"
-              onClick={() => onSwitch(role)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200",
-                isActive
-                  ? "bg-linear-to-r from-teal-600 to-cyan-700 text-white shadow-md shadow-teal-700/25"
-                  : "border border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700",
-              )}
-            >
-              <Icon className="size-3.5" strokeWidth={2.3} />
-              {config.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Section cards                                                       */
@@ -82,6 +41,7 @@ function PersonalCard({ user }) {
     </ProfileSection>
   );
 }
+
 function RoleCard({ user }) {
   const config = ROLE_CONFIG[user.role];
   if (config.roleCardFields.length === 0) return null;
@@ -98,6 +58,7 @@ function RoleCard({ user }) {
     </ProfileSection>
   );
 }
+
 function LocationCard({ user }) {
   const config = ROLE_CONFIG[user.role];
   const showDistrict = config.locationFields.includes("district");
@@ -146,6 +107,7 @@ function LocationCard({ user }) {
     </ProfileSection>
   );
 }
+
 function AccountCard({ user }) {
   const indigoTone = user.role === "SYSTEM_ADMINISTRATOR";
   return (
@@ -159,6 +121,7 @@ function AccountCard({ user }) {
     </ProfileSection>
   );
 }
+
 function SecurityCard() {
   const items = [
     {
@@ -196,6 +159,7 @@ function SecurityCard() {
     </section>
   );
 }
+
 function HotlineCard() {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-amber-200/70 bg-linear-to-br from-amber-50 to-orange-50 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6">
@@ -222,11 +186,9 @@ function HotlineCard() {
 /* ------------------------------------------------------------------ */
 
 export default function ProfileView() {
-  const { profile, loading, error, role, switchRole } = useProfile();
+  const { profile, loading, error } = useProfile();
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
-      <RoleDemoSwitcher active={role} onSwitch={switchRole} />
-
       {error && !loading ? (
         <ProfileErrorState />
       ) : loading || !profile ? (
