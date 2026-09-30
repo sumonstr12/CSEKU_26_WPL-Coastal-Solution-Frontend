@@ -1,52 +1,40 @@
 /**
- * Authentication service — mock-backed, shaped like the real DRF auth API.
- * Swap login()/me() internals with http() calls when backend connects.
+ * Authentication service backed by the Django REST API.
  */
-import { mockRequest } from "./api";
-import { users } from "./mock/mockData";
 import myaxios from "../../utils/myaxios";
 
 const SESSION_KEY = "cgbd.session";
+const TOKEN_KEY = "token";
 
 /** Strip anything that must never reach the UI (defense-in-depth). */
 const sanitizeUser = (u) => {
   if (!u) return null;
-  const { password, otp, otp_created_at, is_superuser, is_staff, ...safe } = u;
+  const safe = { ...u };
+  delete safe.password;
+  delete safe.otp;
+  delete safe.otp_created_at;
+  delete safe.is_superuser;
+  delete safe.is_staff;
   return safe;
 };
 
 export const authService = {
-  async login(phoneRaw, _password) {
-    // Real implementation: await http('/auth/login/', { method:'POST', body:{ phone, password } })
-    const found = users.find((u) => u.phoneRaw === phoneRaw);
-    const user = await mockRequest(() => found || null);
-    if (!user) throw new Error("মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়");
-    return this.persist(user);
-  },
+  async login(username, password) {
+    try {
+      const response = await myaxios.post("auth/login/", { username, password });
+      const token = response.data?.token;
+      if (!token) throw new Error("লগইন টোকেন পাওয়া যায়নি");
 
-  /** One-tap demo login used by the demo role panel on the login screen. */
-  async loginWithRole(role) {
-    const user = await mockRequest(() => users.find((u) => u.role === role) || users[0], [220, 420]);
-    return this.persist(user);
-  },
-
-  async register(payload) {
-    // Real implementation: await http('/auth/register/', { method:'POST', body })
-    const user = await mockRequest(() => ({
-      id: `u-${Date.now()}`,
-      name: payload.name,
-      nameEn: payload.nameEn || payload.name,
-      role: payload.role || "CITIZEN",
-      phone: payload.phoneDisplay,
-      phoneRaw: payload.phoneRaw,
-      email: payload.email || "",
-      division: payload.division,
-      district: payload.district,
-      upazila: payload.upazila,
-      availability: payload.role === "COMMUNITY_VOLUNTEER" ? "AVAILABLE" : undefined,
-      joinedAt: Date.now(),
-    }));
-    return this.persist(user);
+      localStorage.setItem(TOKEN_KEY, token);
+      const user = await this.me();
+      if (!user) throw new Error("ব্যবহারকারীর তথ্য পাওয়া যায়নি");
+      return user;
+    } catch (error) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      const message = error.response?.data?.error || error.message;
+      throw new Error(message || "লগইন করা যায়নি", { cause: error });
+    }
   },
 
   async me() {
@@ -56,6 +44,16 @@ export const authService = {
     const profile = response.data?.data;
 
     if (!profile) return null;
+
+    let volunteerProfile = null;
+    if (profile.role === "COMMUNITY_VOLUNTEER") {
+      try {
+        const profileResponse = await myaxios.get("users/me/profile/");
+        volunteerProfile = profileResponse.data?.data;
+      } catch (error) {
+        console.error("Failed to fetch volunteer profile:", error);
+      }
+    }
 
     const user = {
       id: profile.id,
@@ -67,7 +65,7 @@ export const authService = {
       email: profile.email || "",
       district: profile.district || "",
       availability: profile.role === "COMMUNITY_VOLUNTEER"
-        ? "AVAILABLE"
+        ? volunteerProfile?.availability_status || "AVAILABLE"
         : undefined,
       joinedAt: profile.date_joined,
     };
@@ -94,6 +92,8 @@ export const authService = {
   },
 
   logout() {
+    void myaxios.post("auth/logout/").catch(() => undefined);
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
   },
 };

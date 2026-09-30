@@ -38,7 +38,21 @@ export default function NotificationsPage() {
     setData((rows) => rows.map((n) => ({ ...n, read: true })));
   };
 
-  const toggleRead = (id) => setData((rows) => rows.map((n) => (n.id === id ? { ...n, read: !n.read } : n)));
+  const toggleRead = async (id) => {
+  const notification = (data || []).find((n) => n.id === id);
+
+  if (!notification) return;
+
+  if (!notification.read) {
+    await dashboardService.markNotificationRead(id);
+
+    setData((rows) =>
+      rows.map((n) =>
+        n.id === id ? { ...n, read: true } : n
+      )
+    );
+  }
+};
 
   return (
     <div className="mx-auto max-w-3xl">

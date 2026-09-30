@@ -6,13 +6,20 @@ import SchematicMap from "../../components/dashboard/SchematicMap";
 import EmptyState from "../../components/dashboard/EmptyState";
 import { SeverityPill, StatusPill } from "../../components/ui/Badge";
 import { disasterType, DISASTER_TYPES } from "../../config/disasterTypes";
+import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../hooks/useDashboard";
 import { dashboardService } from "../../services/dashboardService";
+import VolunteerLiveMap from "../../components/dashboard/VolunteerLiveMap";
 import { clockBn } from "../../utils/format";
 import { cn } from "../../utils/cn.js";
 
 export default function MapPage() {
-  const { data, loading, error, refetch } = useDashboard(dashboardService.getMapData, []);
+  const { user } = useAuth();
+  const isVolunteer = user?.role === "COMMUNITY_VOLUNTEER";
+  const { data, loading, error, refetch } = useDashboard(
+    () => dashboardService.getMapData(user),
+    [user?.role]
+  );
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [typeFilter, setTypeFilter] = useState(new Set());
 
@@ -34,12 +41,16 @@ export default function MapPage() {
     <div>
       <PageHeader
         title="দুর্যোগ মানচিত্র"
-        subtitle="উপকূলীয় জেলাভিত্তিক সক্রিয় ঘটনা, ঝুঁকি সূচক ও আশ্রয়কেন্দ্রের অবস্থান (স্কিমাটিক মানচিত্র — প্রকৃত GPS ডেটা API সংযোগের পর প্রতিস্থাপিত হবে)"
+        subtitle={isVolunteer
+          ? data?.area && (data.area.upazila || data.area.district)
+            ? `${[data.area.upazila, data.area.district].filter(Boolean).join(", ")} এলাকার লাইভ মানচিত্র`
+            : "আপনার নির্ধারিত এলাকার লাইভ মানচিত্র"
+          : "উপকূলীয় জেলাভিত্তিক সক্রিয় ঘটনা, ঝুঁকি সূচক ও আশ্রয়কেন্দ্রের অবস্থান (স্কিমাটিক মানচিত্র — প্রকৃত GPS ডেটা API সংযোগের পর প্রতিস্থাপিত হবে)"}
         crumbs="কার্যক্রম / দুর্যোগ মানচিত্র"
       />
 
       {/* type filters */}
-      <div className="mb-5 flex flex-wrap items-center gap-1.5">
+      {!isVolunteer && <div className="mb-5 flex flex-wrap items-center gap-1.5">
         {Object.entries(DISASTER_TYPES).filter(([k]) => k !== "other").map(([key, t]) => {
           const on = typeFilter.has(key);
           return (
@@ -61,7 +72,7 @@ export default function MapPage() {
             ফিল্টার মুছুন
           </button>
         )}
-      </div>
+      </div>}
 
       {loading ? (
         <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
@@ -74,6 +85,13 @@ export default function MapPage() {
         </div>
       ) : error ? (
         <ErrorState onRetry={refetch} />
+      ) : isVolunteer ? (
+        <VolunteerLiveMap
+          reports={data?.reports || []}
+          shelters={data?.shelters || []}
+          area={data?.area}
+          errors={data?.errors || {}}
+        />
       ) : (
         <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
           <SchematicMap
@@ -124,10 +142,10 @@ export default function MapPage() {
         </div>
       )}
 
-      <p className="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-slate-400">
+      {!isVolunteer && <p className="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-slate-400">
         <Info size={13} className="mt-0.5 shrink-0" />
         মার্কারের সংখ্যাটি ওই জেলার সক্রিয় রিপোর্ট নির্দেশ করে; রঙ সর্বোচ্চ গুরুত্ব প্রকাশ করে। সবুজ-ছন্ন অঞ্চল সুন্দরবন; ড্যাশ-বৃত্ত উচ্চ ঝুঁকির জোন।
-      </p>
+      </p>}
     </div>
   );
 }

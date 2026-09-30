@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { CircleCheck, Droplet, MapPin, Navigation, Users, Warehouse, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CircleCheck, Droplet, MapPin, Navigation, Warehouse, Zap } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import ErrorState from "../../components/dashboard/ErrorState";
 import { PageHeader } from "../../components/dashboard/Panel";
 import EmptyState from "../../components/dashboard/EmptyState";
@@ -8,6 +8,7 @@ import { StatGrid } from "../../components/dashboard/StatCard";
 import { PanelSkeleton } from "../../components/dashboard/Skeletons";
 import { Meter } from "../../components/dashboard/Charts";
 import { GenericPill } from "../../components/ui/Badge";
+import { useAuth } from "../../context/AuthContext";
 import { useDashboard } from "../../hooks/useDashboard";
 import { dashboardService } from "../../services/dashboardService";
 import { bn, bnNum } from "../../utils/format";
@@ -20,25 +21,45 @@ const SHELTER_STATUS = {
 };
 
 export default function SheltersPage() {
-  const { data, loading, error, refetch } = useDashboard(dashboardService.getShelters, []);
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const incidentId = searchParams.get("incident");
+  const { data, loading, error, refetch } = useDashboard(
+    () => dashboardService.getShelters({ incidentId }, user),
+    [user?.role, incidentId]
+  );
   const [district, setDistrict] = useState("সব");
 
-  const districts = useMemo(() => ["সব", ...new Set((data || []).map((s) => s.district))], [data]);
-  const items = (data || []).filter((s) => district === "সব" || s.district === district);
+  const shelters = useMemo(
+    () => (Array.isArray(data) ? data : data?.shelters || []),
+    [data]
+  );
+  const incident = Array.isArray(data) ? null : data?.incident || null;
+  const incidentTitle = incident?.title_bn
+    || incident?.category?.name_bn
+    || incident?.title
+    || incident?.category?.name;
+  const incidentLocation = [incident?.upazila, incident?.district].filter(Boolean).join(", ");
+  const incidentSubtitle = incident
+    ? [incidentTitle, incidentLocation && `${incidentLocation} এলাকার আশ্রয়কেন্দ্র`].filter(Boolean).join(" — ")
+    : "উপকূলীয় অঞ্চলের নিবন্ধিত আশ্রয়কেন্দ্র, ধারণক্ষমতা ও সুবিধাসমূহ";
+
+  const districts = useMemo(() => ["সব", ...new Set(shelters.map((s) => s.district))], [shelters]);
+  const items = shelters.filter((s) => district === "সব" || s.district === district);
 
   const stats = useMemo(() => {
-    const rows = data || [];
+    const rows = shelters;
     return [
       { label: "মোট আশ্রয়কেন্দ্র", value: rows.length, tone: "lagoon", icon: "Warehouse" },
       { label: "মোট ধারণক্ষমতা", value: rows.reduce((a, s) => a + s.capacity, 0), tone: "sky", icon: "Users" },
       { label: "বর্তমানে আশ্রিত", value: rows.reduce((a, s) => a + s.occupied, 0), tone: "amber", icon: "MapPinned" },
       { label: "পূর্ণতার হার", valueText: `${Math.round((rows.reduce((a, s) => a + s.occupied, 0) / Math.max(1, rows.reduce((a, s) => a + s.capacity, 0))) * 100)}%`, tone: "emerald", icon: "Gauge" },
     ];
-  }, [data]);
+  }, [shelters]);
 
   return (
     <div>
-      <PageHeader title="আশ্রয়কেন্দ্র" subtitle="উপকূলীয় অঞ্চলের নিবন্ধিত আশ্রয়কেন্দ্র, ধারণক্ষমতা ও সুবিধাসমূহ" crumbs="কার্যক্রম / আশ্রয়কেন্দ্র">
+      <PageHeader title="আশ্রয়কেন্দ্র" subtitle={incidentSubtitle} crumbs="কার্যক্রম / আশ্রয়কেন্দ্র">
         <Link to="/dashboard/map" className="btn-secondary">
           <Navigation size={15} />
           মানচিত্রে দেখুন
@@ -77,7 +98,13 @@ export default function SheltersPage() {
 
           {items.length === 0 ? (
             <div className="card">
-              <EmptyState icon={Warehouse} title="কোনো আশ্রয়কেন্দ্র পাওয়া যায়নি" message="এই জেলায় নিবন্ধিত কোনো আশ্রয়কেন্দ্র নেই।" />
+              <EmptyState
+                icon={Warehouse}
+                title="কোনো আশ্রয়কেন্দ্র পাওয়া যায়নি"
+                message={incidentId
+                  ? "এই দুর্যোগ এলাকার জন্য কোনো আশ্রয়কেন্দ্র পাওয়া যায়নি।"
+                  : "এই জেলায় নিবন্ধিত কোনো আশ্রয়কেন্দ্র নেই।"}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
