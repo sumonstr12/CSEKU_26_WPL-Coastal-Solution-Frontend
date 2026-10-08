@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, CircleUser, House, LayoutDashboard, LogOut, Menu, Phone } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, CircleUser, House, LayoutDashboard, LogOut, Menu, Phone } from "lucide-react";
 import { useClickOutside } from "../../hooks/useClickOutside";
-import { dateBn } from "../../utils/format";
-import { bn } from "../../utils/format";
+import { dateBn, timeAgoBn } from "../../utils/format";
 import { roleOf } from "../../config/roleConfig";
 import { findNavMeta } from "../../config/dashboardMenuConfig";
+import { NOTIFICATION_CONFIG, formatBadge } from "../../config/notificationConfig";
+import { kindOf } from "../../config/notificationKinds";
+import { useNotifications } from "../../context/NotificationContext";
 import ConfirmDialog from "./ConfirmDialog";
 import { BrandMark } from "./Sidebar";
 import { cn } from "../../utils/cn.js";
@@ -14,13 +16,31 @@ import { cn } from "../../utils/cn.js";
  * Dashboard topbar — replaces the public navbar inside /dashboard.
  * LEFT: brand (→ public homepage) · RIGHT: profile dropdown + logout.
  */
-export default function DashboardTopbar({ user, onOpenMobileNav, onLogout, unreadCount = 0, pathname }) {
+export default function DashboardTopbar({ user, onOpenMobileNav, onLogout, pathname }) {
   const [dropOpen, setDropOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const navigate = useNavigate();
   const role = roleOf(user?.role);
   const meta = findNavMeta(pathname);
   const ref = useClickOutside(() => setDropOpen(false), dropOpen);
+  const bellRef = useClickOutside(() => setBellOpen(false), bellOpen);
+  const { items, unread, markAllRead, setRead } = useNotifications();
+  const preview = items.slice(0, NOTIFICATION_CONFIG.dropdownLimit);
+  const badge = formatBadge(unread, NOTIFICATION_CONFIG.caps.topbar);
+  const labels = NOTIFICATION_CONFIG.labels;
+
+  const openItem = async (n) => {
+    setBellOpen(false);
+    if (!n.read) {
+      try {
+        await setRead(n.id, true);
+      } catch {
+        /* ব্যাজ আগের সংখ্যায় ফিরে যাবে */
+      }
+    }
+    navigate(NOTIFICATION_CONFIG.linksByKind[n.kind] || "/dashboard/notifications");
+  };
 
   const menuItems = [
     { to: "/profile", label: "আমার প্রোফাইল", icon: CircleUser },
@@ -61,19 +81,93 @@ export default function DashboardTopbar({ user, onOpenMobileNav, onLogout, unrea
               ৯৯৯
             </a>
 
-            <Link to="/dashboard/notifications" className="btn-icon relative" aria-label="বিজ্ঞপ্তি">
-              <Bell size={19} />
-              {unreadCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
-                  {bn(unreadCount > 9 ? "৯+" : unreadCount)}
-                </span>
+            <div className="relative" ref={bellRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDropOpen(false);
+                  setBellOpen((v) => !v);
+                }}
+                className={cn("btn-icon relative", bellOpen && "bg-lagoon-50 text-lagoon-700")}
+                aria-label={labels.aria}
+                aria-expanded={bellOpen}
+              >
+                <Bell size={19} />
+                {badge && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+                    {badge}
+                  </span>
+                )}
+              </button>
+
+              {bellOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(22rem,calc(100vw-1.5rem))] animate-pop-in overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lift">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-800">{labels.title}</p>
+                    {unread > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => markAllRead().catch(() => {})}
+                        className="inline-flex items-center gap-1 text-[12px] font-bold text-lagoon-700 hover:text-lagoon-800"
+                      >
+                        <CheckCheck size={14} />
+                        {labels.markAll}
+                      </button>
+                    )}
+                  </div>
+
+                  {preview.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-[13px] font-medium text-slate-400">{labels.empty}</p>
+                  ) : (
+                    <ul className="max-h-[22rem] divide-y divide-slate-50 overflow-y-auto">
+                      {preview.map((n) => {
+                        const k = kindOf(n.kind);
+                        return (
+                          <li key={n.id}>
+                            <button
+                              type="button"
+                              onClick={() => openItem(n)}
+                              className={cn(
+                                "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-lagoon-50/50",
+                                !n.read && "bg-lagoon-50/40"
+                              )}
+                            >
+                              <span className={cn("mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", k.box)}>
+                                <k.icon size={15} />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-1.5">
+                                  <span className={cn("truncate text-[13px] font-bold", n.read ? "text-slate-600" : "text-slate-800")}>{n.title}</span>
+                                  {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lagoon-500" />}
+                                </span>
+                                <span className="mt-0.5 line-clamp-2 block text-[12px] leading-relaxed text-slate-500">{n.body}</span>
+                                <span className="mt-1 block text-[11px] font-medium text-slate-400">{timeAgoBn(n.time)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
+                  <Link
+                    to="/dashboard/notifications"
+                    onClick={() => setBellOpen(false)}
+                    className="block border-t border-slate-100 px-4 py-3 text-center text-[13px] font-bold text-lagoon-700 transition hover:bg-lagoon-50"
+                  >
+                    {labels.seeAll}
+                  </Link>
+                </div>
               )}
-            </Link>
+            </div>
 
             {/* profile dropdown */}
             <div className="relative" ref={ref}>
               <button
-                onClick={() => setDropOpen((v) => !v)}
+                onClick={() => {
+                  setBellOpen(false);
+                  setDropOpen((v) => !v);
+                }}
                 className={cn(
                   "flex items-center gap-2.5 rounded-xl border px-1.5 py-1.5 transition sm:px-2.5",
                   dropOpen ? "border-lagoon-300 bg-lagoon-50/60" : "border-transparent hover:border-slate-200 hover:bg-slate-50"

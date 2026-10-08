@@ -17,6 +17,7 @@ import {
 import Logo from "@/components/Logo";
 import { HOTLINE_ITEMS, NAV_ITEMS, SITE } from "@/data/site";
 import { classNames } from "@/lib/utils";
+import myaxios from "../../utils/myaxios";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -33,6 +34,7 @@ export default function Navbar() {
       const token = localStorage.getItem("token");
       const fullName = localStorage.getItem("full_name");
       const storedUser = localStorage.getItem("user");
+      const role = localStorage.getItem("role");
 
       if (token || fullName || storedUser) {
         let userData = {};
@@ -85,14 +87,21 @@ export default function Navbar() {
   }, [open]);
 
   // লগআউট হ্যান্ডলার (সব লোকাল স্টোরেজ কী মুছে ফেলা)
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("full_name");
-    localStorage.removeItem("user");
-    setUser(null);
-    setProfileOpen(false);
-    navigate("/login");
+ const handleLogout = async () => {
+    try {
+      await myaxios.post("auth/logout/", {}, { withCredentials: true });
+    } catch (error) {
+      console.error("Logout API error:", error?.response?.data || error.message);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("full_name");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      setUser(null);
+      setProfileOpen(false);
+      navigate("/login");
+    }
   };
 
   return (

@@ -1,27 +1,16 @@
 import { useMemo, useState } from "react";
-import { Bell, BellOff, CheckCheck, CircleCheck, FileText, LifeBuoy, Server, TriangleAlert, Warehouse } from "lucide-react";
+import { Bell, BellOff, CheckCheck } from "lucide-react";
 import ErrorState from "../../components/dashboard/ErrorState";
 import Panel, { PageHeader } from "../../components/dashboard/Panel";
 import EmptyState from "../../components/dashboard/EmptyState";
 import { PanelSkeleton } from "../../components/dashboard/Skeletons";
-import { useAuth } from "../../context/AuthContext";
-import { useDashboard } from "../../hooks/useDashboard";
-import { dashboardService } from "../../services/dashboardService";
+import { kindOf } from "../../config/notificationKinds";
+import { useNotifications } from "../../context/NotificationContext";
 import { bn, timeAgoBn } from "../../utils/format";
 import { cn } from "../../utils/cn.js";
 
-const KIND = {
-  alert: { icon: TriangleAlert, box: "bg-amber-50 text-amber-600" },
-  report: { icon: FileText, box: "bg-lagoon-50 text-lagoon-600" },
-  shelter: { icon: Warehouse, box: "bg-sky-50 text-sky-600" },
-  mission: { icon: LifeBuoy, box: "bg-orange-50 text-orange-600" },
-  verification: { icon: CircleCheck, box: "bg-emerald-50 text-emerald-600" },
-  system: { icon: Server, box: "bg-slate-100 text-slate-500" },
-};
-
 export default function NotificationsPage() {
-  const { user } = useAuth();
-  const { data, loading, error, refetch, setData } = useDashboard(() => dashboardService.getNotifications(user.role), [user.role]);
+  const { items: data, unread, loading, error, refresh, markAllRead, toggleRead } = useNotifications();
   const [tab, setTab] = useState("ALL");
 
   const items = useMemo(() => {
@@ -31,14 +20,7 @@ export default function NotificationsPage() {
     return rows;
   }, [data, tab]);
 
-  const unreadCount = (data || []).filter((n) => !n.read).length;
-
-  const markAllRead = async () => {
-    await dashboardService.markAllNotificationsRead(user.role);
-    setData((rows) => rows.map((n) => ({ ...n, read: true })));
-  };
-
-  const toggleRead = (id) => setData((rows) => rows.map((n) => (n.id === id ? { ...n, read: !n.read } : n)));
+  const unreadCount = unread;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -73,7 +55,7 @@ export default function NotificationsPage() {
       {loading ? (
         <PanelSkeleton lines={5} />
       ) : error ? (
-        <ErrorState onRetry={refetch} />
+        <ErrorState onRetry={() => refresh()} />
       ) : items.length === 0 ? (
         <div className="card">
           <EmptyState icon={BellOff} title="কোনো বিজ্ঞপ্তি নেই" message={tab === "UNREAD" ? "সব বিজ্ঞপ্তি পঠিত হয়েছে। আপনি একদম আপ-টু-ডেট!" : "নতুন আপডেট এলে এখানে দেখাবে।"} />
@@ -81,7 +63,7 @@ export default function NotificationsPage() {
       ) : (
         <Panel noPadding bodyClassName="divide-y divide-slate-50">
           {items.map((n) => {
-            const k = KIND[n.kind] || KIND.system;
+            const k = kindOf(n.kind);
             return (
               <button key={n.id} onClick={() => toggleRead(n.id)} className={cn("flex w-full items-start gap-3.5 px-5 py-4 text-left transition hover:bg-lagoon-50/40", !n.read && "bg-lagoon-50/30")}>
                 <span className={cn("inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", k.box)}>

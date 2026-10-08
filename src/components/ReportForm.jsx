@@ -91,6 +91,8 @@ function SectionTitle({ number, title, hint }) {
   );
 }
 
+
+
 export default function ReportForm() {
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
@@ -106,6 +108,21 @@ export default function ReportForm() {
 
   // Check if user is logged in
   const isAuthenticated = isLogin();
+
+  // Reads role from localStorage (supports a "role" key or a role inside the "user" JSON)
+  const getStoredRole = () => {
+    try {
+      const direct = localStorage.getItem("role");
+      if (direct) return direct;
+
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      return user?.role || user?.user_role || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const isOfficer = getStoredRole() === "DISASTER_MANAGEMENT_OFFICER";
 
   const set = (key, value) => {
     setForm((f) => ({
@@ -236,14 +253,18 @@ export default function ReportForm() {
       }
 
       // 7. Reporter Details & Anonymity
-      formData.append("is_anonymous", isAuthenticated ? "false" : "true");
+      // Officers are logged in, but their reports are always saved as anonymous
+      const saveAsAnonymous = !isAuthenticated || isOfficer;
+      formData.append("is_anonymous", saveAsAnonymous ? "true" : "false");
 
-      // Only send reporter details if they are provided (always optional)
-      if (form.reporterName.trim()) {
-        formData.append("reporter_name", form.reporterName.trim());
-      }
-      if (form.reporterPhone.trim()) {
-        formData.append("reporter_phone", form.reporterPhone.trim());
+      // Never send reporter identity for officers
+      if (!isOfficer) {
+        if (form.reporterName.trim()) {
+          formData.append("reporter_name", form.reporterName.trim());
+        }
+        if (form.reporterPhone.trim()) {
+          formData.append("reporter_phone", form.reporterPhone.trim());
+        }
       }
 
       // 8. Incident Timestamp ISO format
@@ -269,14 +290,12 @@ export default function ReportForm() {
       if (video) formData.append("files", video);
 
       // Post request
-      const res = await myaxios.post("incidents/create/", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await myaxios.post("incidents/create/", formData, {});
 
+      const data = res?.data?.data || res?.data || {};
       const responseCode =
-        res?.data?.reference_code ||
+        data.reference_code ||
+        data.id ||
         res?.data?.id ||
         `CGBD-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
 
@@ -286,12 +305,16 @@ export default function ReportForm() {
         behavior: "smooth",
       });
     } catch (err) {
-      console.error("Failed to submit incident report:", err);
-      setErrors((prev) => ({
-        ...prev,
-        submit: "রিপোর্ট জমা দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।",
-      }));
-    } finally {
+        console.error("Failed to submit incident report:", err);
+        console.error("Response data:", err?.response?.data);   // ← এটা যোগ করুন
+        setErrors((prev) => ({
+          ...prev,
+          submit:
+            err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            "রিপোর্ট জমা দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+        }));
+      } finally {
       setSubmitting(false);
     }
   };

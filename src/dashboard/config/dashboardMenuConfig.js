@@ -41,6 +41,7 @@ import {
 
 const HOME_ITEM = { to: "/", label: "হোম", icon: House, external: true, end: true };
 const DASHBOARD_ITEM = { to: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard, end: true };
+/** ব্যাজের সংখ্যা notificationConfig.js-এর badgeKey-এর সাথে মিল রাখুন */
 const NOTIFICATIONS_ITEM = { to: "/dashboard/notifications", label: "বিজ্ঞপ্তি", icon: Bell, badgeKey: "notifications" };
 const PROFILE_ITEM = { to: "/profile", label: "প্রোফাইল", icon: CircleUser };
 const MAP_ITEM = { to: "/dashboard/map", label: "দুর্যোগ মানচিত্র", icon: Map };

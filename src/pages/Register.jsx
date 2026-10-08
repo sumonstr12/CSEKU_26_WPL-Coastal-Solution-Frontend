@@ -19,6 +19,7 @@ import { DISTRICT_NAMES } from "@/data/districts";
 import { bn, classNames } from "@/lib/utils";
 import communityImg from "@/assets/community.jpg";
 import myaxios from "@/utils/myaxios";
+import useAlreadyLogIn from "@/utils/alreadyLogIn";
 
 const ROLE_OPTIONS = [
   {
@@ -65,6 +66,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState("");
+
+  useAlreadyLogIn("আপনি ইতিমধ্যেই লগইন করেছেন", "/dashboard");
 
   const clearError = (key) =>
     setErrors((e) => ({

@@ -8,6 +8,7 @@
  * ============================================================
  */
 import myaxios from "../../utils/myaxios";
+import { notificationService } from "./notificationService";
 import { DISASTER_TYPES } from "../config/disasterTypes";
 import { mockRequest } from "./api";
 import {
@@ -24,12 +25,10 @@ import {
   missions,
   mockAddReport,
   mockCompleteTask,
-  mockMarkAllRead,
   mockSetAvailability,
   mockVerifyReport,
   monthlyTrend,
   myReports,
-  notifications,
   operations,
   reports,
   reportsByType,
@@ -43,7 +42,6 @@ import {
 
 const pendingCount = () => reports.filter((r) => r.status === "PENDING").length;
 const openRequests = () => rescueRequests.filter((r) => r.status === "OPEN");
-const unread = (role) => (notifications[role] || []).filter((n) => !n.read).length;
 const criticalDisasters = () =>
   activeDisasters.filter((d) => d.severity === "CRITICAL" || d.severity === "HIGH");
 
@@ -77,7 +75,7 @@ export const dashboardService = {
     }
 
     return mockRequest(() => ({
-      notifications: unread(role),
+      notifications: 0,
       reports: role === "CITIZEN" ? myReports.length : reports.length,
       myReports: myReports.length,
       verification: pendingCount(),
@@ -91,20 +89,19 @@ export const dashboardService = {
   },
 
   async getNotifications(role) {
-    if (isOfficer(role)) {
-      const { data } = await myaxios.get("dashboard/officer/notifications/");
-      return data;
-    }
-    return mockRequest(() => notifications[role] || notifications.default || []);
+    return notificationService.list(role);
+  },
+
+  async getUnreadCount(role) {
+    return notificationService.unreadCount(role);
   },
 
   async markAllNotificationsRead(role) {
-    if (isOfficer(role)) {
-      const { data } = await myaxios.post("dashboard/officer/notifications/read-all/");
-      return data;
-    }
-    mockMarkAllRead(role);
-    return mockRequest(() => notifications[role] || []);
+    return notificationService.markAll(role);
+  },
+
+  async setNotificationRead(role, id, read) {
+    return notificationService.setRead(role, id, read);
   },
 
   async getReports(scope = "all", user) {

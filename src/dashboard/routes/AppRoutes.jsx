@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import DashboardLayout from "../components/dashboard/DashboardLayout";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
@@ -22,7 +22,7 @@ const GR = (path, element) => <RoleBasedRoute path={path}>{element}</RoleBasedRo
 /** All role-scoped dashboard routes in one declarative table */
 const DASHBOARD_ROUTES = [
   { path: "my-reports", el: <ReportsPage mode="mine" /> },
-  { path: "report-disaster", el: <ReportDisasterPage /> },
+  { path: "report-disaster", el: <Navigate to="/report" replace /> },
   { path: "reports", el: <ReportsPage mode="all" /> },
   { path: "community-reports", el: <ReportsPage mode="community" /> },
   { path: "shelters", el: <SheltersPage /> },

@@ -16,6 +16,7 @@ import Logo from "@/components/Logo";
 import { classNames } from "@/lib/utils";
 import shelterImg from "@/assets/shelter.jpg";
 import myaxios from "@/utils/myaxios";
+import useAlreadyLogIn from "@/utils/alreadyLogIn";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,6 +27,8 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useAlreadyLogIn("আপনি ইতিমধ্যেই লগইন করেছেন", "/dashboard");
 
   const submit = async (e) => {
     e.preventDefault();
@@ -51,6 +54,9 @@ export default function Login() {
         }
         if (response.data.full_name) {
           localStorage.setItem("full_name", response.data.full_name);
+        }
+        if (response.data.role) {
+          localStorage.setItem("role", response.data.role);
         }
 
         setSuccess(true);

@@ -419,6 +419,12 @@ export const mockMarkAllRead = (role) => {
   (notifications[role] || []).forEach((n) => (n.read = true));
 };
 
+export const mockSetNotificationRead = (role, id, read) => {
+  const row = (notifications[role] || []).find((n) => n.id === id);
+  if (row) row.read = read;
+  return row;
+};
+
 export const mockSetAvailability = (user, status) => {
   user.availability = status;
   availabilityLog.unshift({ status, note: "নিজে থেকে আপডেট করা হয়েছে", time: Date.now() });

@@ -1,6 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { bn } from "../../utils/format";
+import { NOTIFICATION_CONFIG, formatBadge } from "../../config/notificationConfig";
 import { cn } from "../../utils/cn.js";
 
 /**
@@ -22,7 +22,7 @@ export default function SidebarItem({ item, collapsed, badge, onNavigate }) {
 
   const badgeChip = badge > 0 && (
     <span className={cn("ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500/90 px-1.5 text-[10px] font-bold text-white", collapsed && "absolute -right-0.5 -top-0.5 ml-0 h-4 min-w-4 text-[9px]")}>
-      {bn(badge > 99 ? "৯৯+" : badge)}
+      {formatBadge(badge, NOTIFICATION_CONFIG.caps.sidebar)}
     </span>
   );
 

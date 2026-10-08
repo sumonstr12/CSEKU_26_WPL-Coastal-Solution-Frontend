@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { NotificationProvider, useNotifications } from "../../context/NotificationContext";
+import { NOTIFICATION_CONFIG } from "../../config/notificationConfig";
 import { getMenuForRole } from "../../config/dashboardMenuConfig";
 import { dashboardService } from "../../services/dashboardService";
 import DashboardTopbar from "./DashboardTopbar";
@@ -9,13 +11,27 @@ import { cn } from "../../utils/cn.js";
 
 
 export default function DashboardLayout() {
+  return (
+    <NotificationProvider>
+      <DashboardFrame />
+    </NotificationProvider>
+  );
+}
+
+function DashboardFrame() {
   const { user, logout } = useAuth();
+  const { unread, loaded } = useNotifications();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("cgbd.sidebar") === "collapsed");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [badges, setBadges] = useState({});
 
   const menu = getMenuForRole(user?.role);
+
+  /* বিজ্ঞপ্তির ব্যাজ সবসময় সার্ভারের unread থেকে। বাকি ব্যাজ আগের মতো। */
+  const liveBadges = loaded
+    ? { ...badges, [NOTIFICATION_CONFIG.badgeKey]: unread }
+    : badges;
 
   useEffect(() => {
     localStorage.setItem("cgbd.sidebar", collapsed ? "collapsed" : "expanded");
@@ -27,8 +43,9 @@ export default function DashboardLayout() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname]);
 
-  /* sidebar badge counts (notifications, pending queues, …) */
+  /* sidebar badge counts (pending queues, …) — notifications overwritten above */
   useEffect(() => {
+    if (!user?.role) return undefined;
     let on = true;
     dashboardService.getBadgeCounts(user.role).then((d) => on && setBadges(d)).catch(() => {});
     return () => (on = false);
@@ -39,7 +56,6 @@ export default function DashboardLayout() {
       <DashboardTopbar
         user={user}
         pathname={location.pathname}
-        unreadCount={badges.notifications || 0}
         onOpenMobileNav={() => setMobileOpen(true)}
         onLogout={logout}
       />
@@ -47,7 +63,7 @@ export default function DashboardLayout() {
       <Sidebar
         menu={menu}
         user={user}
-        badges={badges}
+        badges={liveBadges}
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
         mobileOpen={mobileOpen}
@@ -56,7 +72,7 @@ export default function DashboardLayout() {
 
       <main className={cn("min-h-screen pt-16 transition-[padding] duration-300 ease-out", collapsed ? "lg:pl-[76px]" : "lg:pl-72")}>
         <div key={location.pathname} className="mx-auto w-full max-w-[1380px] animate-fade-up px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <Outlet context={{ badges }} />
+          <Outlet context={{ badges: liveBadges }} />
         </div>
       </main>
     </div>
