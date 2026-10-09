@@ -21,18 +21,35 @@ const MISSION_STATUS = {
 };
 
 export default function ResponderDashboard({ user }) {
-  const { data, loading, error, refetch, setData } = useDashboard(dashboardService.getResponderOverview, []);
+  const { data, loading, error, refetch } = useDashboard(dashboardService.getResponderOverview, []);
   const [accepting, setAccepting] = useState(null);
+  const [updating, setUpdating] = useState(null);
 
   if (loading) return <DashboardSkeleton statCount={4} />;
   if (error) return <ErrorState fullPage onRetry={refetch} />;
 
-  const acceptRequest = (id) => {
+  const acceptRequest = async (id) => {
     setAccepting(id);
-    setTimeout(() => {
-      setData((d) => ({ ...d, requests: d.requests.map((r) => (r.id === id ? { ...r, status: "ASSIGNED" } : r)) }));
+    try {
+      await dashboardService.acceptRescueRequest(id);
+      await refetch();
+    } catch (err) {
+      console.error("Accept request failed:", err?.response?.data || err.message);
+    } finally {
       setAccepting(null);
-    }, 500);
+    }
+  };
+
+  const setMissionStatus = async (id, status) => {
+    setUpdating(id);
+    try {
+      await dashboardService.updateMissionStatus(id, status);
+      await refetch();
+    } catch (err) {
+      console.error("Mission update failed:", err?.response?.data || err.message);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   return (
@@ -43,7 +60,7 @@ export default function ResponderDashboard({ user }) {
         extra={
           <span className="chip bg-white/15 text-white backdrop-blur">
             <Crosshair size={11} />
-            {user.team}
+            {user.team || "জরুরি উদ্ধারকারী"}
           </span>
         }
       />
@@ -81,6 +98,27 @@ export default function ResponderDashboard({ user }) {
                       <div className="h-full rounded-full bg-gradient-to-r from-lagoon-400 to-lagoon-600 transition-all duration-700" style={{ width: `${m.progress}%` }} />
                     </div>
                     <span className="text-[11px] font-bold text-lagoon-700">{bnNum(m.progress)}%</span>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    {m.status === "ASSIGNED" ? (
+                      <button
+                        type="button"
+                        disabled={updating === m.id}
+                        onClick={() => setMissionStatus(m.id, "IN_PROGRESS")}
+                        className="btn bg-lagoon-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-lagoon-700 disabled:opacity-60"
+                      >
+                        {updating === m.id ? "..." : "শুরু করুন"}
+                      </button>
+                    ) : m.status === "IN_PROGRESS" ? (
+                      <button
+                        type="button"
+                        disabled={updating === m.id}
+                        onClick={() => setMissionStatus(m.id, "DONE")}
+                        className="btn bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        {updating === m.id ? "..." : "সম্পন্ন"}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );

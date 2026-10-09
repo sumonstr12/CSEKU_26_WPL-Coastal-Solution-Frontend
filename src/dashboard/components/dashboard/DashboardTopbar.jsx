@@ -231,9 +231,10 @@ export default function DashboardTopbar({ user, onOpenMobileNav, onLogout, pathn
         confirmLabel="লগআউট"
         cancelLabel="বাতিল"
         onCancel={() => setConfirmLogout(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setConfirmLogout(false);
-          onLogout();
+          setDropOpen(false);
+          await onLogout();
           navigate("/login");
         }}
       />

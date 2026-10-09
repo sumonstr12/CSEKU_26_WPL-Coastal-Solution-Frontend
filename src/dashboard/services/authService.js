@@ -2,6 +2,10 @@
  * Authentication service — mock-backed, shaped like the real DRF auth API.
  * Swap login()/me() internals with http() calls when backend connects.
  */
+/**
+ * Authentication service — mock-backed, shaped like the real DRF auth API.
+ * Swap login()/me() internals with http() calls when backend connects.
+ */
 import { mockRequest } from "./api";
 import { users } from "./mock/mockData";
 import myaxios from "../../utils/myaxios";
@@ -57,6 +61,16 @@ export const authService = {
 
     if (!profile) return null;
 
+    let extra = {};
+    if (profile.role === "RESPONDER") {
+      try {
+        const ctx = await myaxios.get("dashboard/responder/context/");
+        extra = ctx.data || {};
+      } catch (error) {
+        console.error("Responder context failed:", error);
+      }
+    }
+
     const user = {
       id: profile.id,
       name: profile.full_name,
@@ -65,10 +79,13 @@ export const authService = {
       phone: profile.phone_number,
       phoneRaw: profile.phone_number,
       email: profile.email || "",
-      district: profile.district || "",
-      availability: profile.role === "COMMUNITY_VOLUNTEER"
-        ? "AVAILABLE"
-        : undefined,
+      district: extra.district || profile.district || "",
+      upazila: extra.upazila || "",
+      organization: extra.organization || "",
+      team: extra.team || "",
+      availability:
+        extra.availability ||
+        (profile.role === "COMMUNITY_VOLUNTEER" ? "AVAILABLE" : undefined),
       joinedAt: profile.date_joined,
     };
 
@@ -93,7 +110,20 @@ export const authService = {
     return next;
   },
 
-  logout() {
-    localStorage.removeItem(SESSION_KEY);
+  async logout() {
+    try {
+      await myaxios.post("auth/logout/", {}, { withCredentials: true });
+    } catch (error) {
+      console.error("Logout API error:", error?.response?.data || error.message);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("full_name");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem(SESSION_KEY); // "cgbd.session" — এটা না সরালে সেশন থেকে যাবে
+    }
   },
 };
+
+  

@@ -28,7 +28,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  useAlreadyLogIn("আপনি ইতিমধ্যেই লগইন করেছেন", "/dashboard");
+  // useAlreadyLogIn("আপনি ইতিমধ্যেই লগইন করেছেন!!", "/dashboard");
 
   const submit = async (e) => {
     e.preventDefault();

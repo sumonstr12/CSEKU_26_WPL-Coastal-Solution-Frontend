@@ -75,7 +75,26 @@ const TEAM_STATUS = {
 /* Block renderers                                                     */
 /* ------------------------------------------------------------------ */
 
-function MissionCards({ items }) {
+function MissionCards({ items: initial }) {
+  const [items, setItems] = useState(initial);
+  const [busy, setBusy] = useState(null);
+  const setStatus = async (id, status) => {
+    setBusy(id);
+    try {
+      await dashboardService.updateMissionStatus(id, status);
+      setItems((rows) =>
+        rows.map((m) =>
+          m.id === id
+            ? { ...m, status, progress: status === "DONE" ? 100 : Math.max(m.progress || 0, 40) }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error("Mission update failed:", err?.response?.data || err.message);
+    } finally {
+      setBusy(null);
+    }
+  };
   if (!items.length) return <EmptyState icon={Crosshair} title="কোনো মিশন নিদ্ধারিত নেই" message="বর্তমানে কোনো উদ্ধার কার্যক্রম আপনার জন্য নির্ধারিত নেই।" />;
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -99,9 +118,21 @@ function MissionCards({ items }) {
           </div>
           <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-3 text-[11.5px] text-slate-400">
             <span className="inline-flex items-center gap-1"><Users size={12} />{m.team}</span>
-            <GenericPill tone={m.status === "DONE" ? "emerald" : m.status === "IN_PROGRESS" ? "sky" : "amber"}>
-              {m.status === "DONE" ? "সম্পন্ন" : m.status === "IN_PROGRESS" ? "চলমান" : "বরাদ্দকৃত"}
-            </GenericPill>
+            <span className="flex items-center gap-2">
+              {m.status === "ASSIGNED" && (
+                <button type="button" disabled={busy === m.id} onClick={() => setStatus(m.id, "IN_PROGRESS")} className="btn bg-lagoon-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-lagoon-700 disabled:opacity-60">
+                  {busy === m.id ? "..." : "শুরু করুন"}
+                </button>
+              )}
+              {m.status === "IN_PROGRESS" && (
+                <button type="button" disabled={busy === m.id} onClick={() => setStatus(m.id, "DONE")} className="btn bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
+                  {busy === m.id ? "..." : "সম্পন্ন"}
+                </button>
+              )}
+              <GenericPill tone={m.status === "DONE" ? "emerald" : m.status === "IN_PROGRESS" ? "sky" : "amber"}>
+                {m.status === "DONE" ? "সম্পন্ন" : m.status === "IN_PROGRESS" ? "চলমান" : "বরাদ্দকৃত"}
+              </GenericPill>
+            </span>
           </div>
         </div>
       ))}
@@ -111,6 +142,18 @@ function MissionCards({ items }) {
 
 function RequestCards({ items: initial }) {
   const [items, setItems] = useState(initial);
+  const [busy, setBusy] = useState(null);
+  const accept = async (id) => {
+    setBusy(id);
+    try {
+      await dashboardService.acceptRescueRequest(id);
+      setItems((rows) => rows.map((x) => (x.id === id ? { ...x, status: "ASSIGNED" } : x)));
+    } catch (err) {
+      console.error("Accept request failed:", err?.response?.data || err.message);
+    } finally {
+      setBusy(null);
+    }
+  };
   if (!items.length) return <EmptyState icon={Siren} title="কোনো খোলা অনুরোধ নেই" message="সব জরুরি অনুরোধ মোকাবিলা করা হয়েছে। অসাধারণ কাজ!" />;
   return (
     <ul className="grid gap-4 md:grid-cols-2">
@@ -130,8 +173,8 @@ function RequestCards({ items: initial }) {
               {r.contact}
             </a>
             {r.status === "OPEN" ? (
-              <button onClick={() => setItems((rows) => rows.map((x) => (x.id === r.id ? { ...x, status: "ASSIGNED" } : x)))} className="btn bg-red-500 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-red-600 active:scale-95">
-                গ্রহণ করুন
+              <button type="button" disabled={busy === r.id} onClick={() => accept(r.id)} className="btn bg-red-500 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-red-600 active:scale-95 disabled:opacity-60">
+                {busy === r.id ? "..." : "গ্রহণ করুন"}
               </button>
             ) : (
               <GenericPill tone="amber">বরাদ্দ হয়েছে</GenericPill>
