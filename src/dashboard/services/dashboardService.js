@@ -94,6 +94,7 @@ const VOLUNTEER_SECTIONS = [
   "community-reports",
   "assistance",
   "my-area",
+  "rescue-operations",
 ];
 
 /* ================= Public / shared getters ================= */
@@ -648,12 +649,41 @@ export const dashboardService = {
     return data;
   },
 
-  async completeTask(id) {
+  async completeTask(id, payload = {}) {
     if (isVolunteer()) {
-      const { data } = await myaxios.post(`dashboard/volunteer/tasks/${id}/complete/`);
+      const { data } = await myaxios.post(`dashboard/volunteer/tasks/${id}/complete/`, payload);
       return data;
     }
     mockCompleteTask(id);
-    return mockRequest({ id });
+    return mockRequest({ id, ...payload });
+  },
+
+  /** Point 5 — update activity (status / note / people_helped) */
+  async updateVolunteerTask(id, payload = {}) {
+    const { data } = await myaxios.post(`dashboard/volunteer/tasks/${id}/update/`, payload);
+    return data;
+  },
+
+  /** Point 4 — list joinable rescue/relief operations */
+  async getVolunteerOperations() {
+    const { data } = await myaxios.get("dashboard/volunteer/operations/");
+    return data;
+  },
+
+  /** Point 4 — join an operation */
+  async joinVolunteerOperation(key, payload = {}) {
+    const { data } = await myaxios.post(`dashboard/volunteer/operations/${key}/join/`, payload);
+    return data;
+  },
+
+  /** Point 5 — activity history */
+  async getVolunteerActivities(params = {}) {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.kind) qs.set("kind", params.kind);
+    const q = qs.toString();
+    const url = q ? `dashboard/volunteer/activities/?${q}` : "dashboard/volunteer/activities/";
+    const { data } = await myaxios.get(url);
+    return data;
   },
 };

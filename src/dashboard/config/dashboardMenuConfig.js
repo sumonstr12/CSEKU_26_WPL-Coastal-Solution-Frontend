@@ -76,6 +76,7 @@ export const DASHBOARD_MENUS = {
     quickActions: [
       { to: "/dashboard/availability", label: "Availability পরিবর্তন করুন", icon: UserCheck, tone: "primary" },
       { to: "/dashboard/community-reports", label: "কমিউনিটি রিপোর্ট দেখুন", icon: Eye, tone: "soft" },
+      { to: "/dashboard/rescue-operations", label: "উদ্ধার/ত্রাণে অংশ নিন", icon: LifeBuoy, tone: "soft" },
     ],
     sections: [
       { title: "প্রধান মেনু", items: [HOME_ITEM, DASHBOARD_ITEM] },
@@ -85,6 +86,7 @@ export const DASHBOARD_MENUS = {
           REPORTS_ITEM,
           { to: "/dashboard/community-reports", label: "কমিউনিটি রিপোর্ট", icon: Users, badgeKey: "community" },
           { to: "/dashboard/assistance", label: "সহায়তা কার্যক্রম", icon: HandHeart, badgeKey: "assistance" },
+          { to: "/dashboard/rescue-operations", label: "উদ্ধার ও ত্রাণ", icon: LifeBuoy, badgeKey: "operations" },
           SHELTERS_ITEM,
           MAP_ITEM,
           { to: "/dashboard/my-area", label: "আমার এলাকা", icon: MapPinned },

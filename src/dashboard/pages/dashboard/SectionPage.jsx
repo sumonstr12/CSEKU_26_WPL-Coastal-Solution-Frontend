@@ -223,33 +223,181 @@ function OperationCards({ items }) {
 
 function TaskCards({ items: initial }) {
   const [items, setItems] = useState(initial);
-  const complete = (id) => {
-    dashboardService.completeTask(id);
-    setItems((rows) => rows.map((t) => (t.id === id ? { ...t, status: "DONE" } : t)));
+  const [openId, setOpenId] = useState(null);
+  const [note, setNote] = useState("");
+  const [people, setPeople] = useState("");
+  const [busy, setBusy] = useState(null);
+
+  const openEdit = (t) => {
+    setOpenId(t.id === openId ? null : t.id);
+    setNote(t.note || "");
+    setPeople(t.peopleHelped != null ? String(t.peopleHelped) : "");
   };
+
+  const applyLocal = (updated) => {
+    setItems((rows) => rows.map((t) => (t.id === updated.id || (updated.id && String(t.id) === String(updated.id)) ? { ...t, ...updated } : t)));
+  };
+
+  const saveUpdate = async (t, status) => {
+    setBusy(t.id);
+    try {
+      const payload = {
+        status: status || t.status,
+        note: note,
+        people_helped: people === "" ? undefined : Number(people),
+      };
+      const data = await dashboardService.updateVolunteerTask(t.id, payload);
+      applyLocal({ ...t, ...data, status: data.status || status || t.status });
+      setOpenId(null);
+    } catch {
+      /* keep UI */
+    }
+    setBusy(null);
+  };
+
+  const complete = async (t) => {
+    if (t.status === "DONE") return;
+    setBusy(t.id);
+    try {
+      const data = await dashboardService.completeTask(t.id, {
+        note: note || t.note || "",
+        people_helped: people === "" ? t.peopleHelped : Number(people),
+      });
+      applyLocal({ ...t, ...data, status: "DONE" });
+      setOpenId(null);
+    } catch {
+      applyLocal({ ...t, status: "DONE" });
+    }
+    setBusy(null);
+  };
+
   if (!items.length) return <EmptyState icon={UserCheck} title="কোনো কার্যক্রম নেই" message="নতুন সহায়তা কার্যক্রম বরাদ্দ হলে এখানে দেখাবে।" />;
   return (
     <ul className="space-y-3">
       {items.map((t) => (
-        <li key={t.id} className={cn("flex flex-wrap items-center gap-3.5 rounded-xl border p-4 transition", t.status === "DONE" ? "border-slate-100 bg-slate-50/60 opacity-70" : "border-slate-100 bg-white hover:border-lagoon-200 hover:shadow-card")}>
-          <button
-            onClick={() => t.status !== "DONE" && complete(t.id)}
-            className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition active:scale-90", t.status === "DONE" ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 text-transparent hover:border-lagoon-500")}
-          >
-            <CircleCheck size={14} />
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className={cn("text-sm font-bold text-slate-700", t.status === "DONE" && "line-through")}>{t.title}</p>
-            <p className="mt-0.5 text-[12px] text-slate-400">{t.detail}</p>
-            <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
-              <span className="inline-flex items-center gap-1"><MapPin size={10} />{t.place}</span>
-              <span className="inline-flex items-center gap-1"><CalendarDays size={10} />{t.due}</span>
-            </p>
+        <li key={t.id} className={cn("rounded-xl border p-4 transition", t.status === "DONE" ? "border-slate-100 bg-slate-50/60 opacity-80" : "border-slate-100 bg-white hover:border-lagoon-200 hover:shadow-card")}>
+          <div className="flex flex-wrap items-center gap-3.5">
+            <button
+              type="button"
+              onClick={() => complete(t)}
+              disabled={busy === t.id}
+              className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition active:scale-90", t.status === "DONE" ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 text-transparent hover:border-lagoon-500")}
+            >
+              <CircleCheck size={14} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-sm font-bold text-slate-700", t.status === "DONE" && "line-through")}>{t.title}</p>
+              <p className="mt-0.5 text-[12px] text-slate-400">{t.detail}</p>
+              <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
+                <span className="inline-flex items-center gap-1"><MapPin size={10} />{t.place}</span>
+                <span className="inline-flex items-center gap-1"><CalendarDays size={10} />{t.due}</span>
+                {t.kind && <span className="chip bg-slate-50 text-slate-500">{t.kind === "RESCUE" ? "উদ্ধার" : t.kind === "RELIEF" ? "ত্রাণ" : "সহায়তা"}</span>}
+                {(t.peopleHelped > 0) && <span className="text-emerald-600 font-semibold">{bnNum(t.peopleHelped)} জন সহায়তা</span>}
+              </p>
+              {t.note && <p className="mt-1 text-[12px] text-slate-500">নোট: {t.note}</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <GenericPill tone={t.status === "DONE" ? "emerald" : t.status === "ONGOING" ? "sky" : "amber"}>{t.status === "DONE" ? "সম্পন্ন" : t.status === "ONGOING" ? "চলমান" : "বাকি আছে"}</GenericPill>
+              {t.status !== "DONE" && (
+                <button type="button" onClick={() => openEdit(t)} className="btn-secondary px-2.5 py-1 text-[11px] font-bold">
+                  আপডেট
+                </button>
+              )}
+            </div>
           </div>
-          <GenericPill tone={t.status === "DONE" ? "emerald" : t.status === "ONGOING" ? "sky" : "amber"}>{t.status === "DONE" ? "সম্পন্ন" : t.status === "ONGOING" ? "চলমান" : "বাকি আছে"}</GenericPill>
+          {openId === t.id && t.status !== "DONE" && (
+            <div className="mt-3 space-y-2 rounded-lg border border-lagoon-100 bg-lagoon-50/40 p-3">
+              <label className="block text-[11px] font-bold text-slate-500">সহায়তাপ্রাপ্ত মানুষের সংখ্যা</label>
+              <input
+                type="number"
+                min="0"
+                value={people}
+                onChange={(e) => setPeople(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                placeholder={t.suggestedPeople ? `প্রস্তাবিত ~${t.suggestedPeople}` : "যেমন: ১২"}
+              />
+              <label className="block text-[11px] font-bold text-slate-500">কার্যক্রমের নোট</label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                placeholder="কী সহায়তা দিয়েছেন লিখুন…"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={busy === t.id} onClick={() => saveUpdate(t, "ONGOING")} className="btn-secondary px-3 py-1.5 text-[12px] font-bold">
+                  চলমান রাখুন
+                </button>
+                <button type="button" disabled={busy === t.id} onClick={() => complete(t)} className="btn bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-emerald-700">
+                  {busy === t.id ? "..." : "সম্পন্ন করুন"}
+                </button>
+              </div>
+            </div>
+          )}
         </li>
       ))}
     </ul>
+  );
+}
+
+function VolunteerOps({ items: initial }) {
+  const [items, setItems] = useState(initial);
+  const [busy, setBusy] = useState(null);
+
+  const join = async (o, kind) => {
+    if (o.joined || o.completed) return;
+    setBusy(o.id);
+    try {
+      await dashboardService.joinVolunteerOperation(o.id, { kind });
+      setItems((rows) => rows.map((x) => (x.id === o.id ? { ...x, joined: true, joinLabel: "অংশগ্রহণরত" } : x)));
+    } catch {
+      /* ignore */
+    }
+    setBusy(null);
+  };
+
+  if (!items?.length) return <EmptyState icon={LifeBuoy} title="কোনো অভিযান নেই" message="এলাকায় চলমান উদ্ধার/ত্রাণ অভিযান এখানে দেখাবে।" />;
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {items.map((o) => (
+        <div key={o.id} className="rounded-xl border border-slate-100 p-4 transition hover:shadow-card">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold text-slate-800">{o.title}</p>
+              <p className="mt-1 text-[11.5px] text-slate-400">{o.id} • {o.type} • {o.district}</p>
+            </div>
+            <GenericPill tone={o.status === "DONE" ? "emerald" : o.joined ? "sky" : "amber"}>
+              {o.joined ? "অংশগ্রহণরত" : o.status === "DONE" ? "সম্পন্ন" : "চলমান"}
+            </GenericPill>
+          </div>
+          <div className="mt-3.5 grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: "নিয়োজিত দল", value: o.teams },
+              { label: "উদ্ধারকৃত", value: o.rescued },
+              { label: "নেতৃত্ব", value: o.lead, raw: true },
+            ].map((x, i) => (
+              <div key={i} className="rounded-lg bg-sand-50/80 px-2 py-2">
+                <p className={cn("font-bold text-slate-700", x.raw ? "truncate text-[11px]" : "text-sm")}>{x.raw ? x.value : bnNum(x.value)}</p>
+                <p className="text-[10px] font-medium text-slate-400">{x.label}</p>
+              </div>
+            ))}
+          </div>
+          {!o.joined && !o.completed && o.status !== "DONE" && (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-50 pt-3">
+              <button type="button" disabled={busy === o.id} onClick={() => join(o, "RELIEF")} className="btn bg-lagoon-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-lagoon-700 disabled:opacity-60">
+                {busy === o.id ? "..." : "ত্রাণে অংশ নিন"}
+              </button>
+              <button type="button" disabled={busy === o.id} onClick={() => join(o, "RESCUE")} className="btn-secondary px-3 py-1.5 text-[12px] font-bold">
+                উদ্ধারে অংশ নিন
+              </button>
+            </div>
+          )}
+          {o.joined && (
+            <p className="mt-3 text-[12px] font-semibold text-sky-700">আপনি এই অভিযানে যুক্ত আছেন — সহায়তা পাতা থেকে আপডেট করুন।</p>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -548,6 +696,7 @@ const RENDERERS = {
   requestCards: RequestCards,
   operationCards: OperationCards,
   taskCards: TaskCards,
+  volunteerOps: VolunteerOps,
   disasterCards: DisasterCards,
   riskBars: RiskBars,
   areaTreeCards: AreaTreeCards,
