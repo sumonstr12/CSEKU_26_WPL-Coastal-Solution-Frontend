@@ -74,6 +74,7 @@ const OFFICER_SECTIONS = [
   "rescue-operations",
   "risk-analysis",
   "areas",
+  "funding",
 ];
 
 const RESPONDER_SECTIONS = [
@@ -84,10 +85,10 @@ const RESPONDER_SECTIONS = [
 ];
 
 const AUTHORITY_SECTIONS = [
-  "verification",
   "rescue-operations",
   "areas",
   "reports",
+  "funding",
 ];
 
 const VOLUNTEER_SECTIONS = [
@@ -170,6 +171,10 @@ export const dashboardService = {
       const { data } = await myaxios.get("dashboard/volunteer/reports/");
       return data;
     }
+    if (isCitizen(user?.role) && scope === "mine") {
+      const { data } = await myaxios.get("dashboard/citizen/reports/");
+      return data;
+    }
 
     const response = await myaxios.get("incidents/");
     const result = response.data;
@@ -191,6 +196,12 @@ export const dashboardService = {
       reporter: incident.reporter_name
         ? { name: incident.reporter_name }
         : null,
+      canEdit: ["PENDING", "SUBMITTED", "UNDER_REVIEW"].includes(
+        String(incident.status || "").toUpperCase()
+      ),
+      canDelete: ["PENDING", "SUBMITTED", "UNDER_REVIEW"].includes(
+        String(incident.status || "").toUpperCase()
+      ),
     }));
 
     if (scope === "mine") {
@@ -206,6 +217,49 @@ export const dashboardService = {
     }
 
     return normalizedIncidents;
+  },
+
+  /** Citizen: full report detail for edit form */
+  async getCitizenReportDetail(id) {
+    const { data } = await myaxios.get(`dashboard/citizen/reports/${id}/`);
+    return data;
+  },
+
+  /**
+   * Citizen: update own report (pending only).
+   * payload may be plain object OR FormData (for files).
+   */
+  async updateCitizenReport(id, payload) {
+    const isForm = typeof FormData !== "undefined" && payload instanceof FormData;
+    const { data } = await myaxios.patch(
+      `dashboard/citizen/reports/${id}/`,
+      payload,
+      isForm ? { headers: { "Content-Type": "multipart/form-data" } } : undefined
+    );
+    return data;
+  },
+
+  /** Citizen: delete own report (pending only) */
+  async deleteCitizenReport(id) {
+    const { data } = await myaxios.delete(`dashboard/citizen/reports/${id}/`);
+    return data;
+  },
+
+  /** Local Authority: full report detail + evidence */
+  async getAuthorityReportDetail(id) {
+    const { data } = await myaxios.get(`dashboard/authority/reports/${id}/`);
+    return data;
+  },
+
+  async getOfficerReportDetail(id) {
+    const { data } = await myaxios.get(`dashboard/officer/reports/${id}/`);
+    return data;
+  },
+
+  /** Volunteer: full report detail + Supabase evidence before verify */
+  async getVolunteerReportDetail(id) {
+    const { data } = await myaxios.get(`dashboard/volunteer/reports/${id}/`);
+    return data;
   },
 
   async getShelters(filter = {}) {
@@ -615,15 +669,94 @@ export const dashboardService = {
 
   async verifyReport(id, action) {
     if (isOfficer()) {
-      const { data } = await myaxios.post(`dashboard/officer/reports/${id}/verify/`, { action });
+      const a = String(action || "").toUpperCase();
+      const body =
+        a === "VERIFY" || a === "REJECT"
+          ? { action: a }
+          : { status: a === "PENDING" ? "submitted" : a.toLowerCase(), action: a };
+      const { data } = await myaxios.post(`dashboard/officer/reports/${id}/verify/`, body);
       return data;
     }
     if (isAuthority()) {
       const { data } = await myaxios.post(`dashboard/authority/reports/${id}/verify/`, { action });
       return data;
     }
+    if (isVolunteer()) {
+      // Volunteer only verifies — officer announces rescue events
+      const { data } = await myaxios.post(`dashboard/volunteer/reports/${id}/verify/`, {
+        action,
+      });
+      return data;
+    }
     mockVerifyReport(id, action);
     return mockRequest({ id, action });
+  },
+
+  /** Officer: announce rescue/relief event from a verified incident */
+  async announceOfficerEvent(id, payload = {}) {
+    const { data } = await myaxios.post(
+      `dashboard/officer/reports/${id}/announce/`,
+      payload
+    );
+    return data;
+  },
+
+  async getOfficerFunding() {
+    const { data } = await myaxios.get("dashboard/officer/funding/");
+    return data;
+  },
+
+  async requestOfficerFunding(payload) {
+    const { data } = await myaxios.post("dashboard/officer/funding/", payload);
+    return data;
+  },
+
+  async getOfficerFundingDetail(id) {
+    const { data } = await myaxios.get(`dashboard/officer/funding/${id}/`);
+    return data;
+  },
+
+  async updateOfficerFunding(id, payload) {
+    const { data } = await myaxios.patch(`dashboard/officer/funding/${id}/`, payload);
+    return data;
+  },
+
+  async deleteOfficerFunding(id) {
+    const { data } = await myaxios.delete(`dashboard/officer/funding/${id}/`);
+    return data;
+  },
+
+  async getAuthorityFunding() {
+    const { data } = await myaxios.get("dashboard/authority/funding/");
+    return data;
+  },
+
+  async decideAuthorityFunding(id, payload) {
+    const { data } = await myaxios.post(
+      `dashboard/authority/funding/${id}/decide/`,
+      payload
+    );
+    return data;
+  },
+
+  async getOfficerEvents() {
+    const { data } = await myaxios.get("dashboard/officer/events/");
+    return data;
+  },
+
+  async createOfficerEvent(payload) {
+    const { data } = await myaxios.post("dashboard/officer/events/", payload);
+    return data;
+  },
+
+  async updateOfficerEvent(id, payload) {
+    const { data } = await myaxios.patch(`dashboard/officer/events/${id}/`, payload);
+    return data;
+  },
+
+  async deleteOfficerEvent(id) {
+    const { data } = await myaxios.delete(`dashboard/officer/events/${id}/`);
+    return data;
   },
 
   async setAvailability(user, status) {
@@ -673,6 +806,11 @@ export const dashboardService = {
   /** Point 4 — join an operation */
   async joinVolunteerOperation(key, payload = {}) {
     const { data } = await myaxios.post(`dashboard/volunteer/operations/${key}/join/`, payload);
+    return data;
+  },
+
+  async leaveVolunteerOperation(key) {
+    const { data } = await myaxios.post(`dashboard/volunteer/operations/${key}/leave/`);
     return data;
   },
 

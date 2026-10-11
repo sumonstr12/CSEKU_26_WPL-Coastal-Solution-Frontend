@@ -36,6 +36,7 @@ const DASHBOARD_ROUTES = [
   { path: "missions", el: <SectionPage sectionKey="missions" /> },
   { path: "rescue-requests", el: <SectionPage sectionKey="rescue-requests" /> },
   { path: "verification", el: <SectionPage sectionKey="verification" /> },
+  { path: "funding", el: <SectionPage sectionKey="funding" /> },
   { path: "monitoring", el: <SectionPage sectionKey="monitoring" /> },
   { path: "risk-analysis", el: <SectionPage sectionKey="risk-analysis" /> },
   { path: "areas", el: <SectionPage sectionKey="areas" /> },

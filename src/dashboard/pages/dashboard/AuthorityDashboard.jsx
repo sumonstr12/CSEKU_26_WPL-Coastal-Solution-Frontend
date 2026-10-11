@@ -14,8 +14,13 @@ import { bnNum } from "../../utils/format";
 import { WelcomeBanner } from "./Dashboard";
 
 export default function AuthorityDashboard({ user }) {
-  const { data, loading, error, refetch, silentRefetch } = useDashboard(dashboardService.getAuthorityOverview, []);
+  const { data, loading, error, refetch, silentRefetch } = useDashboard(
+    dashboardService.getAuthorityOverview,
+    []
+  );
   const [verifyBusy, setVerifyBusy] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   if (loading) return <DashboardSkeleton statCount={5} />;
   if (error) return <ErrorState fullPage onRetry={refetch} />;
@@ -25,6 +30,19 @@ export default function AuthorityDashboard({ user }) {
     await dashboardService.verifyReport(id, action);
     await silentRefetch();
     setVerifyBusy(null);
+  };
+
+  const openDetail = async (row) => {
+    setDetailLoading(true);
+    setDetail({ id: row.id, title: row.title });
+    try {
+      const d = await dashboardService.getAuthorityReportDetail(row.id);
+      setDetail(d);
+    } catch {
+      /* keep stub */
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   return (
@@ -85,6 +103,7 @@ export default function AuthorityDashboard({ user }) {
             items={data.verificationQueue}
             onVerify={onVerify}
             verifyBusy={verifyBusy}
+            onRowClick={openDetail}
             empty={{ title: "যাচাই সারি খালি", message: "সব রিপোর্ট যাচাই সম্পন্ন হয়েছে। চমৎকার কাজ!" }}
           />
         </Panel>

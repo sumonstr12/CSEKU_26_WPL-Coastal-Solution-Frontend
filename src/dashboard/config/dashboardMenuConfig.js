@@ -48,6 +48,7 @@ const MAP_ITEM = { to: "/dashboard/map", label: "দুর্যোগ মান
 const SHELTERS_ITEM = { to: "/dashboard/shelters", label: "আশ্রয়কেন্দ্র", icon: Warehouse };
 const REPORTS_ITEM = { to: "/dashboard/reports", label: "দুর্যোগ রিপোর্ট", icon: FileText, badgeKey: "reports" };
 const VERIFICATION_ITEM = { to: "/dashboard/verification", label: "রিপোর্ট যাচাই", icon: BadgeCheck, badgeKey: "verification" };
+const FUNDING_ITEM = { to: "/dashboard/funding", label: "ত্রাণ তহবিল", icon: Landmark, badgeKey: "funding" };
 const AREAS_ITEM = { to: "/dashboard/areas", label: "প্রশাসনিক এলাকা", icon: Landmark };
 const OPERATIONS_ITEM = { to: "/dashboard/rescue-operations", label: "উদ্ধার কার্যক্রম", icon: LifeBuoy, badgeKey: "operations" };
 
@@ -128,12 +129,14 @@ export const DASHBOARD_MENUS = {
 
   /* ---------------- LOCAL AUTHORITY ---------------- */
   LOCAL_AUTHORITY: {
-    quickActions: [{ to: "/dashboard/verification", label: "পেন্ডিং রিপোর্ট যাচাই করুন", icon: BadgeCheck, tone: "primary" }],
+    quickActions: [
+      { to: "/dashboard/funding", label: "ত্রাণ তহবিল দেখুন", icon: Landmark, tone: "primary" },
+    ],
     sections: [
       { title: "প্রধান মেনু", items: [HOME_ITEM, DASHBOARD_ITEM] },
       {
         title: "স্থানীয় ব্যবস্থাপনা",
-        items: [REPORTS_ITEM, VERIFICATION_ITEM, SHELTERS_ITEM, OPERATIONS_ITEM, MAP_ITEM, AREAS_ITEM],
+        items: [REPORTS_ITEM, FUNDING_ITEM, SHELTERS_ITEM, OPERATIONS_ITEM, MAP_ITEM, AREAS_ITEM],
       },
       { title: "অ্যাকাউন্ট", items: [NOTIFICATIONS_ITEM, PROFILE_ITEM] },
     ],
@@ -141,7 +144,10 @@ export const DASHBOARD_MENUS = {
 
   /* ---------------- DISASTER MANAGEMENT OFFICER ---------------- */
   DISASTER_MANAGEMENT_OFFICER: {
-    quickActions: [{ to: "/dashboard/monitoring", label: "জনপদ সার্বিক চিত্র দেখুন", icon: Radar, tone: "primary" }],
+    quickActions: [
+      { to: "/dashboard/monitoring", label: "জনপদ সার্বিক চিত্র দেখুন", icon: Radar, tone: "primary" },
+      { to: "/dashboard/funding", label: "ত্রাণ তহবিল অনুরোধ", icon: Landmark, tone: "soft" },
+    ],
     sections: [
       { title: "প্রধান মেনু", items: [HOME_ITEM, DASHBOARD_ITEM] },
       {
@@ -150,6 +156,7 @@ export const DASHBOARD_MENUS = {
           { to: "/dashboard/monitoring", label: "দুর্যোগ পর্যবেক্ষণ", icon: Radar, badgeKey: "monitoring" },
           REPORTS_ITEM,
           VERIFICATION_ITEM,
+          FUNDING_ITEM,
           OPERATIONS_ITEM,
           SHELTERS_ITEM,
           MAP_ITEM,

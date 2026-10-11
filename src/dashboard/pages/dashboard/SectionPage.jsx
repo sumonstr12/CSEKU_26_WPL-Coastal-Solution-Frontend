@@ -6,6 +6,7 @@ import {
   CircleCheck,
   Clock,
   Crosshair,
+  Landmark,
   Layers,
   LifeBuoy,
   MapPin,
@@ -28,6 +29,7 @@ import Panel, { PageHeader } from "../../components/dashboard/Panel";
 import EmptyState from "../../components/dashboard/EmptyState";
 import RecentActivity from "../../components/dashboard/RecentActivity";
 import ReportTable from "../../components/dashboard/ReportTable";
+import OfficerReportDetailModal from "../../components/dashboard/OfficerReportDetailModal";
 import { TableSkeleton } from "../../components/dashboard/Skeletons";
 import { StatGrid } from "../../components/dashboard/StatCard";
 import { BarList, Donut } from "../../components/dashboard/Charts";
@@ -48,6 +50,11 @@ const META = {
   "rescue-requests": { title: "জরুরি অনুরোধ", subtitle: "বিপদাপন্ন মানুষের সরাসরি অনুরোধ — অগ্রাধিকার অনুযায়ী", icon: Siren },
   "rescue-operations": { title: "উদ্ধার কার্যক্রম", subtitle: "চলমান ও সম্পন্ন সমন্বিত উদ্ধার অভিযানসমূহ", icon: LifeBuoy },
   verification: { title: "রিপোর্ট যাচাই", subtitle: "নাগরিকদের রিপোর্ট যাচাই করে সঠিক তথ্য নিশ্চিত করুন", icon: BadgeCheck },
+  funding: {
+    title: "ত্রাণ তহবিল",
+    subtitle: "লোকেশনভিত্তিক ত্রাণ তহবিল অনুরোধ ও অনুমোদন — এক এলাকায় একটি তহবিল",
+    icon: Landmark,
+  },
   assistance: { title: "সহায়তা কার্যক্রম", subtitle: "আপনার জন্য নির্ধারিত স্বেচ্ছাসেবী কাজের তালিকা", icon: UserCheck },
   "my-area": { title: "আমার এলাকা", subtitle: "দায়িত্বপূর্ণ এলাকার সার্বিক চিত্র", icon: MapPinned },
   awareness: { title: "সচেতনতা ও প্রস্তুতি", subtitle: "দুর্যোগের আগে-পরে করণীয় — পড়ুন, শিখুন, ছড়িয়ে দিন", icon: BookOpen },
@@ -186,8 +193,41 @@ function RequestCards({ items: initial }) {
   );
 }
 
-function OperationCards({ items }) {
+function OperationCards({ items, canManage, onChanged }) {
   if (!items.length) return <EmptyState icon={LifeBuoy} title="কোনো অভিযান নেই" message="বর্তমানে কোনো উদ্ধার অভিযান চলমান নেই।" />;
+
+  const editEvent = async (o) => {
+    if (!o.eventId && !String(o.id).startsWith("EV-")) return;
+    const eid = o.eventId || String(o.id).replace(/^EV-/i, "");
+    const title = window.prompt("ইভেন্টের নাম", o.title);
+    if (title == null) return;
+    const maxV = window.prompt("সর্বোচ্চ স্বেচ্ছাসেবক", String(o.maxVolunteers || o.teams || 10));
+    if (maxV == null) return;
+    try {
+      await dashboardService.updateOfficerEvent(eid, {
+        title,
+        max_volunteers: Number(maxV),
+        district: o.district,
+        upazila: o.upazila,
+      });
+      onChanged?.();
+    } catch (e) {
+      alert(e?.response?.data?.detail || "আপডেট ব্যর্থ");
+    }
+  };
+
+  const deleteEvent = async (o) => {
+    if (!o.eventId && !String(o.id).startsWith("EV-")) return;
+    const eid = o.eventId || String(o.id).replace(/^EV-/i, "");
+    if (!window.confirm(`ইভেন্ট "${o.title}" মুছবেন?`)) return;
+    try {
+      await dashboardService.deleteOfficerEvent(eid);
+      onChanged?.();
+    } catch (e) {
+      alert(e?.response?.data?.detail || "মুছা যায়নি");
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {items.map((o) => (
@@ -195,18 +235,31 @@ function OperationCards({ items }) {
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-sm font-bold text-slate-800">{o.title}</p>
-              <p className="mt-1 text-[11.5px] text-slate-400">{o.id} • {o.type} • {o.district}</p>
+              <p className="mt-1 text-[11.5px] text-slate-400">
+                {o.id} • {o.type} • {[o.upazila, o.district].filter(Boolean).join(", ")}
+              </p>
             </div>
-            <GenericPill tone={o.status === "DONE" ? "emerald" : "sky"}>{o.status === "DONE" ? "সম্পন্ন" : "চলমান"}</GenericPill>
+            <GenericPill tone={o.status === "DONE" ? "emerald" : "sky"}>
+              {o.status === "DONE" ? "সম্পন্ন" : "চলমান"}
+            </GenericPill>
           </div>
           <div className="mt-3.5 grid grid-cols-3 gap-2 text-center">
             {[
-              { label: "নিয়োজিত দল", value: o.teams },
+              {
+                label: o.maxVolunteers != null ? "যোগদান / সর্বোচ্চ" : "নিয়োজিত দল",
+                value:
+                  o.maxVolunteers != null
+                    ? `${o.joinedCount ?? o.teams ?? 0}/${o.maxVolunteers}`
+                    : o.teams,
+                raw: o.maxVolunteers != null,
+              },
               { label: "উদ্ধারকৃত", value: o.rescued },
               { label: "নেতৃত্ব", value: o.lead, raw: true },
             ].map((x, i) => (
               <div key={i} className="rounded-lg bg-sand-50/80 px-2 py-2">
-                <p className={cn("font-bold text-slate-700", x.raw ? "truncate text-[11px]" : "text-sm")}>{x.raw ? x.value : bnNum(x.value)}</p>
+                <p className={cn("font-bold text-slate-700", x.raw ? "truncate text-[11px]" : "text-sm")}>
+                  {x.raw ? x.value : bnNum(x.value)}
+                </p>
                 <p className="text-[10px] font-medium text-slate-400">{x.label}</p>
               </div>
             ))}
@@ -215,6 +268,24 @@ function OperationCards({ items }) {
             <Clock size={11} />
             শুরু: {clockBn(o.startedAt)}
           </p>
+          {canManage && (o.isLocationEvent || String(o.id).startsWith("EV-")) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => editEvent(o)}
+                className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-lagoon-700 ring-1 ring-lagoon-200"
+              >
+                সম্পাদনা
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteEvent(o)}
+                className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-red-600 ring-1 ring-red-200"
+              >
+                মুছুন
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -344,59 +415,125 @@ function VolunteerOps({ items: initial }) {
   const [items, setItems] = useState(initial);
   const [busy, setBusy] = useState(null);
 
-  const join = async (o, kind) => {
-    if (o.joined || o.completed) return;
+  // Single join — kind comes from event missionType only (RESCUE or RELIEF)
+  const join = async (o) => {
+    if (o.joined || o.completed || !o.canJoin) return;
+    const kind = (o.missionType || (o.type === "ত্রাণ" ? "RELIEF" : "RESCUE")).toUpperCase();
     setBusy(o.id);
     try {
       await dashboardService.joinVolunteerOperation(o.id, { kind });
-      setItems((rows) => rows.map((x) => (x.id === o.id ? { ...x, joined: true, joinLabel: "অংশগ্রহণরত" } : x)));
-    } catch {
-      /* ignore */
+      setItems((rows) =>
+        rows.map((x) =>
+          x.id === o.id ? { ...x, joined: true, joinLabel: "অংশগ্রহণরত", canJoin: false } : x
+        )
+      );
+    } catch (e) {
+      alert(e?.response?.data?.detail || "যোগ দিতে ব্যর্থ");
     }
     setBusy(null);
   };
 
-  if (!items?.length) return <EmptyState icon={LifeBuoy} title="কোনো অভিযান নেই" message="এলাকায় চলমান উদ্ধার/ত্রাণ অভিযান এখানে দেখাবে।" />;
+  const leave = async (o) => {
+    if (!o.joined) return;
+    if (!window.confirm("এই ইভেন্ট থেকে বেরিয়ে যেতে চান?")) return;
+    setBusy(o.id);
+    try {
+      await dashboardService.leaveVolunteerOperation(o.id);
+      setItems((rows) =>
+        rows.map((x) =>
+          x.id === o.id
+            ? { ...x, joined: false, joinLabel: "অংশ নিন", canJoin: true, completed: false }
+            : x
+        )
+      );
+    } catch (e) {
+      alert(e?.response?.data?.detail || "ছেড়ে যেতে ব্যর্থ");
+    }
+    setBusy(null);
+  };
+
+  if (!items?.length)
+    return (
+      <EmptyState
+        icon={LifeBuoy}
+        title="কোনো অভিযান নেই"
+        message="এলাকায় চলমান উদ্ধার/ত্রাণ অভিযান এখানে দেখাবে।"
+      />
+    );
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {items.map((o) => (
-        <div key={o.id} className="rounded-xl border border-slate-100 p-4 transition hover:shadow-card">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-bold text-slate-800">{o.title}</p>
-              <p className="mt-1 text-[11.5px] text-slate-400">{o.id} • {o.type} • {o.district}</p>
-            </div>
-            <GenericPill tone={o.status === "DONE" ? "emerald" : o.joined ? "sky" : "amber"}>
-              {o.joined ? "অংশগ্রহণরত" : o.status === "DONE" ? "সম্পন্ন" : "চলমান"}
-            </GenericPill>
-          </div>
-          <div className="mt-3.5 grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: "নিয়োজিত দল", value: o.teams },
-              { label: "উদ্ধারকৃত", value: o.rescued },
-              { label: "নেতৃত্ব", value: o.lead, raw: true },
-            ].map((x, i) => (
-              <div key={i} className="rounded-lg bg-sand-50/80 px-2 py-2">
-                <p className={cn("font-bold text-slate-700", x.raw ? "truncate text-[11px]" : "text-sm")}>{x.raw ? x.value : bnNum(x.value)}</p>
-                <p className="text-[10px] font-medium text-slate-400">{x.label}</p>
+      {items.map((o) => {
+        const kind = (o.missionType || "").toUpperCase();
+        const isRelief = kind === "RELIEF" || o.type === "ত্রাণ";
+        const joinLabel = isRelief ? "ত্রাণে অংশ নিন" : "উদ্ধারে অংশ নিন";
+        return (
+          <div key={o.id} className="rounded-xl border border-slate-100 p-4 transition hover:shadow-card">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold text-slate-800">{o.title}</p>
+                <p className="mt-1 text-[11.5px] text-slate-400">
+                  {o.id} • {o.type} • {[o.upazila, o.district].filter(Boolean).join(", ")}
+                  {o.maxVolunteers != null
+                    ? ` • ${o.joinedCount ?? o.teams ?? 0}/${o.maxVolunteers}`
+                    : ""}
+                </p>
               </div>
-            ))}
-          </div>
-          {!o.joined && !o.completed && o.status !== "DONE" && (
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-50 pt-3">
-              <button type="button" disabled={busy === o.id} onClick={() => join(o, "RELIEF")} className="btn bg-lagoon-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-lagoon-700 disabled:opacity-60">
-                {busy === o.id ? "..." : "ত্রাণে অংশ নিন"}
-              </button>
-              <button type="button" disabled={busy === o.id} onClick={() => join(o, "RESCUE")} className="btn-secondary px-3 py-1.5 text-[12px] font-bold">
-                উদ্ধারে অংশ নিন
-              </button>
+              <GenericPill tone={o.status === "DONE" ? "emerald" : o.joined ? "sky" : "amber"}>
+                {o.joined ? "অংশগ্রহণরত" : o.status === "DONE" ? "সম্পন্ন" : "চলমান"}
+              </GenericPill>
             </div>
-          )}
-          {o.joined && (
-            <p className="mt-3 text-[12px] font-semibold text-sky-700">আপনি এই অভিযানে যুক্ত আছেন — সহায়তা পাতা থেকে আপডেট করুন।</p>
-          )}
-        </div>
-      ))}
+            <div className="mt-3.5 grid grid-cols-3 gap-2 text-center">
+              {[
+                {
+                  label: o.maxVolunteers != null ? "যোগদান / সর্বোচ্চ" : "নিয়োজিত দল",
+                  value:
+                    o.maxVolunteers != null
+                      ? `${o.joinedCount ?? o.teams ?? 0}/${o.maxVolunteers}`
+                      : o.teams,
+                  raw: o.maxVolunteers != null,
+                },
+                { label: "উদ্ধারকৃত", value: o.rescued },
+                { label: "নেতৃত্ব", value: o.lead, raw: true },
+              ].map((x, i) => (
+                <div key={i} className="rounded-lg bg-sand-50/80 px-2 py-2">
+                  <p className={cn("font-bold text-slate-700", x.raw ? "truncate text-[11px]" : "text-sm")}>
+                    {x.raw ? x.value : bnNum(x.value)}
+                  </p>
+                  <p className="text-[10px] font-medium text-slate-400">{x.label}</p>
+                </div>
+              ))}
+            </div>
+            {!o.joined && !o.completed && o.status !== "DONE" && o.canJoin !== false && (
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-50 pt-3">
+                <button
+                  type="button"
+                  disabled={busy === o.id}
+                  onClick={() => join(o)}
+                  className="btn bg-lagoon-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-lagoon-700 disabled:opacity-60"
+                >
+                  {busy === o.id ? "..." : joinLabel}
+                </button>
+              </div>
+            )}
+            {!o.joined && o.canJoin === false && o.status !== "DONE" && (
+              <p className="mt-3 text-[12px] font-semibold text-amber-700">ইভেন্ট পূর্ণ — আর জায়গা নেই।</p>
+            )}
+            {o.joined && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-50 pt-3">
+                <p className="text-[12px] font-semibold text-sky-700">আপনি এই অভিযানে যুক্ত আছেন।</p>
+                <button
+                  type="button"
+                  disabled={busy === o.id}
+                  onClick={() => leave(o)}
+                  className="btn bg-white px-3 py-1.5 text-[12px] font-bold text-red-600 ring-1 ring-red-200 disabled:opacity-60"
+                >
+                  {busy === o.id ? "..." : "ইভেন্ট ছেড়ে যান"}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -710,6 +847,247 @@ const RENDERERS = {
   timeline: (props) => <RecentActivity items={props.items} />,
 };
 
+/** Same coastal districts/upazilas as report form */
+const COASTAL_DISTRICTS = [
+  { name: "খুলনা", upazilas: ["খুলনা সদর", "ডুমুরিয়া", "তেরখাদা", "দিঘলিয়া", "পাইকগাছা", "ফুলতলা", "বটিয়াঘাটা", "রূপসা", "কয়রা", "দাকোপ"] },
+  { name: "সাতক্ষীরা", upazilas: ["সাতক্ষীরা সদর", "আশাশুনি", "কালীগঞ্জ", "কালিগঞ্জ", "তালা", "দেবহাটা", "শ্যামনগর"] },
+  { name: "বাগেরহাট", upazilas: ["বাগেরহাট সদর", "মোংলা", "মোড়েলগঞ্জ", "রামপাল", "ফকিরহাট", "চিতলমারী", "কচুয়া", "মোল্লাহাট", "শরণখোলা"] },
+  { name: "বরিশাল", upazilas: ["বরিশাল সদর", "বাকেরগঞ্জ", "বাবুগঞ্জ", "বানারীপাড়া", "গৌরনদী", "আগৈলঝাড়া", "মেহেন্দিগঞ্জ", "মুলাদী", "হিজলা", "উজিরপুর"] },
+  { name: "পটুয়াখালী", upazilas: ["পটুয়াখালী সদর", "কলাপাড়া", "গলাচিপা", "দশমিনা", "মির্জাগঞ্জ", "বাউফল", "রাঙ্গাবালী", "দুমকি"] },
+  { name: "বরগুনা", upazilas: ["বরগুনা সদর", "আমতলী", "তালতলী", "পাথরঘাটা", "বেতাগী", "বামনা"] },
+  { name: "ভোলা", upazilas: ["ভোলা সদর", "চরফ্যাশন", "তজুমদ্দিন", "দাউলতখান", "মনপুরা", "লালমোহন", "বোরহানউদ্দিন"] },
+  { name: "পিরোজপুর", upazilas: ["পিরোজপুর সদর", "নাজিরপুর", "কাউখালী", "ভান্ডারিয়া", "মঠবাড়িয়া", "নেছারাবাদ", "ইন্দুরকানী"] },
+  { name: "ঝালকাঠি", upazilas: ["ঝালকাঠি সদর", "কাঠালিয়া", "নলছিটি", "রাজাপুর"] },
+  { name: "চট্টগ্রাম", upazilas: ["চট্টগ্রাম সদর", "আনোয়ারা", "বাঁশখালী", "বোয়ালখালী", "চন্দনাইশ", "ফটিকছড়ি", "হাটহাজারী", "লোহাগাড়া", "মীরসরাই", "পটিয়া", "রাঙ্গুনিয়া", "রাউজান", "সন্দ্বীপ", "সাতকানিয়া", "সীতাকুণ্ড"] },
+  { name: "কক্সবাজার", upazilas: ["কক্সবাজার সদর", "চকরিয়া", "কুতুবদিয়া", "মহেশখালী", "পেকুয়া", "রামু", "টেকনাফ", "উখিয়া"] },
+  { name: "নোয়াখালী", upazilas: ["নোয়াখালী সদর", "বেগমগঞ্জ", "চাটখিল", "কোম্পানীগঞ্জ", "হাতিয়া", "সেনবাগ", "সুবর্ণচর", "সোনাইমুড়ী", "কবিরহাট"] },
+];
+
+
+function OfficerEventCreateForm({ onCreated }) {
+  const [form, setForm] = useState({
+    title: "",
+    district: "",
+    upazila: "",
+    mission_type: "RESCUE",
+    max_volunteers: "10",
+    note: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const upazilaOptions = useMemo(() => {
+    const d = COASTAL_DISTRICTS.find((x) => x.name === form.district);
+    return d?.upazilas || [];
+  }, [form.district]);
+  const set = (k) => (e) => {
+    const val = e.target.value;
+    setForm((f) => (k === "district" ? { ...f, district: val, upazila: "" } : { ...f, [k]: val }));
+  };
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await dashboardService.createOfficerEvent({
+        title: form.title.trim(),
+        district: form.district.trim(),
+        upazila: form.upazila.trim(),
+        mission_type: form.mission_type,
+        max_volunteers: Number(form.max_volunteers),
+        note: form.note.trim(),
+      });
+      alert("ইভেন্ট তৈরি হয়েছে — জেলার স্বেচ্ছাসেবকদের জানানো হয়েছে");
+      setForm({ title: "", district: "", upazila: "", mission_type: "RESCUE", max_volunteers: "10", note: "" });
+      onCreated?.();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "তৈরি ব্যর্থ");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+      <label className="block text-[12px] font-semibold text-slate-600 sm:col-span-2">
+        ইভেন্টের নাম *
+        <input required className="input mt-1 w-full" value={form.title} onChange={set("title")} placeholder="যেমন: মোংলা উদ্ধার অভিযান" />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        জেলা *
+        <select required className="input mt-1 w-full" value={form.district} onChange={set("district")}>
+          <option value="">জেলা বাছুন</option>
+          {COASTAL_DISTRICTS.map((d) => (
+            <option key={d.name} value={d.name}>{d.name}</option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        উপজেলা
+        <select className="input mt-1 w-full" value={form.upazila} onChange={set("upazila")} disabled={!form.district}>
+          <option value="">{form.district ? "উপজেলা বাছুন" : "আগে জেলা বাছুন"}</option>
+          {upazilaOptions.map((u) => (
+            <option key={u} value={u}>{u}</option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        ধরন
+        <select className="input mt-1 w-full" value={form.mission_type} onChange={set("mission_type")}>
+          <option value="RESCUE">উদ্ধার</option>
+          <option value="RELIEF">ত্রাণ</option>
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        সর্বোচ্চ স্বেচ্ছাসেবক *
+        <input required type="number" min="1" className="input mt-1 w-full" value={form.max_volunteers} onChange={set("max_volunteers")} />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600 sm:col-span-2">
+        নোট
+        <input className="input mt-1 w-full" value={form.note} onChange={set("note")} />
+      </label>
+      <div className="sm:col-span-2">
+        <button type="submit" disabled={busy} className="btn-primary px-4 py-2 text-[13px] font-bold disabled:opacity-60">
+          {busy ? "তৈরি হচ্ছে…" : "ইভেন্ট তৈরি করুন"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function OfficerFundingCreateForm({ onCreated }) {
+  const [form, setForm] = useState({
+    incident_name: "",
+    district: "",
+    upazila: "",
+    village: "",
+    union: "",
+    amount: "",
+    description: "",
+    note: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const upazilaOptions = useMemo(() => {
+    const d = COASTAL_DISTRICTS.find((x) => x.name === form.district);
+    return d?.upazilas || [];
+  }, [form.district]);
+
+  const set = (k) => (e) => {
+    const val = e.target.value;
+    setForm((f) => {
+      if (k === "district") return { ...f, district: val, upazila: "" };
+      return { ...f, [k]: val };
+    });
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await dashboardService.requestOfficerFunding({
+        incident_name: form.incident_name.trim(),
+        district: form.district.trim(),
+        upazila: form.upazila.trim(),
+        village: form.village.trim(),
+        union: form.union.trim(),
+        amount: Number(form.amount),
+        description: form.description.trim(),
+        note: form.note.trim(),
+      });
+      alert("তহবিল অনুরোধ পাঠানো হয়েছে — সংশ্লিষ্ট জেলার কর্তৃপক্ষকে জানানো হয়েছে");
+      setForm({
+        incident_name: "",
+        district: "",
+        upazila: "",
+        village: "",
+        union: "",
+        amount: "",
+        description: "",
+        note: "",
+      });
+      onCreated?.();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "অনুরোধ ব্যর্থ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+      <label className="block text-[12px] font-semibold text-slate-600 sm:col-span-2">
+        দুর্যোগ/ঘটনার নাম *
+        <input
+          required
+          className="input mt-1 w-full"
+          value={form.incident_name}
+          onChange={set("incident_name")}
+          placeholder="যেমন: বাগেরহাট বন্যা ২০২৬"
+        />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        জেলা *
+        <select required className="input mt-1 w-full" value={form.district} onChange={set("district")}>
+          <option value="">জেলা বাছুন</option>
+          {COASTAL_DISTRICTS.map((d) => (
+            <option key={d.name} value={d.name}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        উপজেলা
+        <select
+          className="input mt-1 w-full"
+          value={form.upazila}
+          onChange={set("upazila")}
+          disabled={!form.district}
+        >
+          <option value="">{form.district ? "উপজেলা বাছুন" : "আগে জেলা বাছুন"}</option>
+          {upazilaOptions.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        ইউনিয়ন
+        <input className="input mt-1 w-full" value={form.union} onChange={set("union")} />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        গ্রাম
+        <input className="input mt-1 w-full" value={form.village} onChange={set("village")} />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600">
+        চাহিদা (টাকা) *
+        <input
+          required
+          type="number"
+          min="1"
+          className="input mt-1 w-full"
+          value={form.amount}
+          onChange={set("amount")}
+        />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600 sm:col-span-2">
+        বিবরণ
+        <textarea className="input mt-1 w-full" rows={2} value={form.description} onChange={set("description")} />
+      </label>
+      <label className="block text-[12px] font-semibold text-slate-600 sm:col-span-2">
+        অফিসার নোট
+        <input className="input mt-1 w-full" value={form.note} onChange={set("note")} />
+      </label>
+      <p className="sm:col-span-2 text-[11.5px] text-slate-400">
+        নির্বাচিত জেলার স্থানীয় কর্তৃপক্ষের কাছে অনুরোধ যাবে (যেমন বাগেরহাট → বাগেরহাট Authority)।
+      </p>
+      <div className="sm:col-span-2">
+        <button type="submit" disabled={busy} className="btn-primary px-4 py-2 text-[13px] font-bold disabled:opacity-60">
+          {busy ? "পাঠানো হচ্ছে…" : "তহবিল অনুরোধ পাঠান"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* The generic section page                                            */
 /* ------------------------------------------------------------------ */
@@ -718,12 +1096,29 @@ export default function SectionPage({ sectionKey }) {
   const meta = META[sectionKey] || { title: "সেকশন", subtitle: "", icon: BookOpen };
   const { data, loading, error, refetch, silentRefetch } = useDashboard(() => dashboardService.getSectionData(sectionKey, user), [sectionKey]);
   const [verifyBusy, setVerifyBusy] = useState(null);
+  const [announceBusy, setAnnounceBusy] = useState(null);
+  const [officerDetailId, setOfficerDetailId] = useState(null);
 
   const onVerify = async (id, action) => {
     setVerifyBusy(id);
     await dashboardService.verifyReport(id, action);
     await silentRefetch();
     setVerifyBusy(null);
+  };
+
+  const onAnnounce = async (id, missionType = "RESCUE") => {
+    setAnnounceBusy(id);
+    try {
+      const res = await dashboardService.announceOfficerEvent(id, {
+        mission_type: missionType,
+      });
+      alert(res?.message || "ইভেন্ট ঘোষণা হয়েছে");
+      await silentRefetch();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "ইভেন্ট ঘোষণা ব্যর্থ");
+    } finally {
+      setAnnounceBusy(null);
+    }
   };
 
   return (
@@ -748,13 +1143,247 @@ export default function SectionPage({ sectionKey }) {
           {data.blocks.map((block, i) => {
             if (block.type === "reportTable" || block.type === "verificationTable") {
               return (
-                <Panel key={i} title={block.title} noPadding icon={block.type === "verificationTable" ? BadgeCheck : undefined}>
+                <Panel
+                  key={i}
+                  title={block.title}
+                  subtitle={block.hint}
+                  noPadding
+                  icon={block.type === "verificationTable" ? BadgeCheck : undefined}
+                >
                   <ReportTable
                     items={block.items}
                     showReporter
                     onVerify={block.type === "verificationTable" ? onVerify : undefined}
                     verifyBusy={verifyBusy}
+                    onRowClick={
+                      block.type === "verificationTable"
+                        ? (r) => setOfficerDetailId(r.id)
+                        : undefined
+                    }
                     empty={{ title: "তালিকা খালি", message: "দেখানোর মতো কোনো আইটেম নেই।" }}
+                  />
+                </Panel>
+              );
+            }
+            if (block.type === "officerEventForm") {
+              return (
+                <Panel key={i} title={block.title} subtitle={block.hint}>
+                  <OfficerEventCreateForm onCreated={() => silentRefetch()} />
+                </Panel>
+              );
+            }
+            if (block.type === "officerFundingForm") {
+              return (
+                <Panel key={i} title={block.title} subtitle={block.hint}>
+                  <OfficerFundingCreateForm onCreated={() => silentRefetch()} />
+                </Panel>
+              );
+            }
+            if (block.type === "fundingTable") {
+              const readOnly = !!block.readOnly;
+              const canManage = !!block.canManage;
+              return (
+                <Panel key={i} title={block.title} subtitle={block.hint} noPadding>
+                  <div className="divide-y divide-slate-50">
+                    {(block.items || []).length === 0 ? (
+                      <p className="px-4 py-8 text-center text-[13px] text-slate-400">কোনো অনুরোধ নেই</p>
+                    ) : (
+                      (block.items || []).map((f) => {
+                        const canEdit =
+                          canManage &&
+                          (f.status === "PENDING" ||
+                            f.status === "REJECTED" ||
+                            f.status === "MODIFIED");
+                        const canDelete =
+                          canManage &&
+                          (f.status === "PENDING" ||
+                            f.status === "REJECTED" ||
+                            f.status === "MODIFIED");
+                        return (
+                        <div key={f.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold text-slate-700">
+                              {f.incidentName || f.title}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-400">
+                              #{f.id} • {f.location || `${f.upazila}, ${f.district}`} • চাওয়া:{" "}
+                              {Number(f.requestedAmount).toLocaleString("bn-BD")} ৳
+                              {f.approvedAmount != null
+                                ? ` • অনুমোদিত: ${Number(f.approvedAmount).toLocaleString("bn-BD")} ৳`
+                                : ""}
+                            </p>
+                          </div>
+                          <span className="chip bg-slate-100 text-[11px] text-slate-600">{f.status}</span>
+                          {/* Officer CRUD */}
+                          {canManage && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-lagoon-700 ring-1 ring-lagoon-200"
+                                  onClick={async () => {
+                                    const name = window.prompt(
+                                      "ঘটনার নাম",
+                                      f.incidentName || f.title || ""
+                                    );
+                                    if (name == null) return;
+                                    const amt = window.prompt(
+                                      "চাহিদা (টাকা)",
+                                      String(f.requestedAmount)
+                                    );
+                                    if (amt == null || amt === "") return;
+                                    const note = window.prompt("নোট", f.officerNote || "");
+                                    try {
+                                      await dashboardService.updateOfficerFunding(f.id, {
+                                        incident_name: name,
+                                        amount: Number(amt),
+                                        note: note || "",
+                                        district: f.district,
+                                        upazila: f.upazila,
+                                      });
+                                      await silentRefetch();
+                                    } catch (e) {
+                                      alert(e?.response?.data?.detail || "আপডেট ব্যর্থ");
+                                    }
+                                  }}
+                                >
+                                  সম্পাদনা
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-red-600 ring-1 ring-red-200"
+                                  onClick={async () => {
+                                    if (!window.confirm(`তহবিল #${f.id} মুছবেন?`)) return;
+                                    try {
+                                      await dashboardService.deleteOfficerFunding(f.id);
+                                      await silentRefetch();
+                                    } catch (e) {
+                                      alert(e?.response?.data?.detail || "মুছা যায়নি");
+                                    }
+                                  }}
+                                >
+                                  মুছুন
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* Authority decide: MODIFY amount → still PENDING → then APPROVE/REJECT; or direct APPROVE */}
+                          {!readOnly && !canManage && f.status === "PENDING" && (
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-lagoon-700 ring-1 ring-lagoon-200"
+                                onClick={async () => {
+                                  const amt = window.prompt(
+                                    "সংশোধিত পরিমাণ (টাকা) — পরে অনুমোদন/প্রত্যাখ্যান করতে পারবেন",
+                                    String(f.requestedAmount)
+                                  );
+                                  if (amt == null || amt === "") return;
+                                  try {
+                                    const res = await dashboardService.decideAuthorityFunding(f.id, {
+                                      action: "MODIFY",
+                                      amount: Number(amt),
+                                    });
+                                    alert(res?.message || "পরিমাণ সংশোধন হয়েছে");
+                                    await silentRefetch();
+                                  } catch (e) {
+                                    alert(e?.response?.data?.detail || "ব্যর্থ");
+                                  }
+                                }}
+                              >
+                                পরিমাণ সংশোধন
+                              </button>
+                              <button
+                                type="button"
+                                className="btn bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white"
+                                onClick={async () => {
+                                  if (!window.confirm(`অনুরোধ #${f.id} অনুমোদন করবেন (${Number(f.requestedAmount).toLocaleString("bn-BD")} ৳)?`)) return;
+                                  try {
+                                    await dashboardService.decideAuthorityFunding(f.id, { action: "APPROVE" });
+                                    await silentRefetch();
+                                  } catch (e) {
+                                    alert(e?.response?.data?.detail || "ব্যর্থ");
+                                  }
+                                }}
+                              >
+                                অনুমোদন
+                              </button>
+                              <button
+                                type="button"
+                                className="btn bg-white px-2.5 py-1 text-[11px] font-bold text-red-600 ring-1 ring-red-200"
+                                onClick={async () => {
+                                  if (!window.confirm(`অনুরোধ #${f.id} প্রত্যাখ্যান করবেন?`)) return;
+                                  try {
+                                    await dashboardService.decideAuthorityFunding(f.id, { action: "REJECT" });
+                                    await silentRefetch();
+                                  } catch (e) {
+                                    alert(e?.response?.data?.detail || "ব্যর্থ");
+                                  }
+                                }}
+                              >
+                                প্রত্যাখ্যান
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </Panel>
+              );
+            }
+            if (block.type === "verifiedTable" || block.type === "areaIncidentTable") {
+              return (
+                <Panel key={i} title={block.title} subtitle={block.hint} noPadding icon={BadgeCheck}>
+                  <div className="divide-y divide-slate-50">
+                    {(block.items || []).length === 0 ? (
+                      <p className="px-4 py-8 text-center text-[13px] text-slate-400">কোনো আইটেম নেই</p>
+                    ) : (
+                      (block.items || []).map((r) => (
+                        <div
+                          key={r.id}
+                          className="flex flex-wrap items-center gap-3 px-4 py-3.5 hover:bg-lagoon-50/30"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-slate-700">{r.title}</p>
+                            <p className="mt-0.5 text-[11px] text-slate-400">
+                              #{r.id} • {r.upazila}, {r.district}
+                              {r.verificationCount != null ? ` • যাচাই: ${r.verificationCount}` : ""}
+                            </p>
+                          </div>
+                          <span
+                            className={
+                              r.isVerified || r.status === "VERIFIED"
+                                ? "chip bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : r.status === "PENDING"
+                                  ? "chip bg-amber-50 text-amber-800 ring-1 ring-amber-200"
+                                  : "chip bg-slate-100 text-slate-500"
+                            }
+                          >
+                            {r.isVerified || r.status === "VERIFIED"
+                              ? "যাচাইকৃত"
+                              : r.status === "PENDING"
+                                ? "অপেক্ষিত"
+                                : r.status}
+                          </span>
+
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Panel>
+              );
+            }
+            if (block.type === "operationCards") {
+              return (
+                <Panel key={i} title={block.title} subtitle={block.subtitle}>
+                  <OperationCards
+                    items={block.items || []}
+                    canManage={!!block.canManage}
+                    onChanged={() => silentRefetch()}
                   />
                 </Panel>
               );
@@ -770,6 +1399,14 @@ export default function SectionPage({ sectionKey }) {
             );
           })}
         </div>
+      )}
+
+      {officerDetailId && (
+        <OfficerReportDetailModal
+          reportId={officerDetailId}
+          onClose={() => setOfficerDetailId(null)}
+          onUpdated={() => silentRefetch()}
+        />
       )}
     </div>
   );
