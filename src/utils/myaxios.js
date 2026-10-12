@@ -1,4 +1,3 @@
-
 import axios from "axios";
 
 const API_BASE_URL =
@@ -9,13 +8,16 @@ const myaxios = axios.create({
     withCredentials: true,
 });
 
+const refreshAxios = axios.create({
+    baseURL: API_BASE_URL,
+    withCredentials: true,
+});
+
 let isRedirecting = false;
 
 const logoutAndRedirect = () => {
     if (isRedirecting) return;
-
     isRedirecting = true;
-
     localStorage.removeItem("token");
     window.location.href = "/";
 };
@@ -23,11 +25,9 @@ const logoutAndRedirect = () => {
 myaxios.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token");
-
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-
         return config;
     },
     (error) => Promise.reject(error)
@@ -46,18 +46,12 @@ myaxios.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                const { data } = await myaxios.post(
-                    "token/get-refresh/",
-                    {}
-                );
+                const { data } = await refreshAxios.post("token/get-refresh/", {});
 
                 localStorage.setItem("token", data.access);
 
-                originalRequest.headers =
-                    originalRequest.headers || {};
-
-                originalRequest.headers.Authorization =
-                    `Bearer ${data.access}`;
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers.Authorization = `Bearer ${data.access}`;
 
                 return myaxios(originalRequest);
             } catch (refreshError) {
